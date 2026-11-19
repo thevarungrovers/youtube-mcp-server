@@ -74,6 +74,15 @@ In the [Google Cloud console](https://console.cloud.google.com/):
 
 `client_secret.json`, `token.json` and `.env` are gitignored. Never commit them.
 
+### Troubleshooting sign-in
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Error 403: org_internal` | The OAuth consent screen's user type is **Internal**, which only admits users of the project's Google Workspace organization. Brand Account channels count as outside the organization, even when a member manages them. | Google Auth Platform → **Audience** → **Make external**. Keep the publishing status on **Testing**, add the Google account you sign in with under **Test users**, delete `token.json`, and run `python cli.py auth` again. If switching to External is blocked by an organization policy, ask your Workspace admin, or create the Cloud project under a personal Google account. |
+| `Error 403: access_denied` | The app is in Testing and the account isn't listed as a test user. | Add the account under **Audience → Test users**. |
+| "Google hasn't verified this app" | Normal for a private app that hasn't been through Google's verification. | Click **Advanced → Go to (app name)**. |
+| "could not be refreshed" after about a week | Apps in **Testing** get refresh tokens that expire after 7 days. | Run `python cli.py auth` again, or set the publishing status to **In production**. That works unverified, with the warning above, for up to 100 users. |
+
 **Scopes requested** (all read-only): `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly`.
 
 ### Optional settings (`.env`)
