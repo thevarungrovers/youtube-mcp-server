@@ -46,6 +46,7 @@ from youtube.errors import (
 from youtube.insights import get_audience_insights, get_search_terms
 from youtube.operations import OPERATIONS
 from youtube.playlists import get_playlist_details, get_playlist_items, list_playlists
+from youtube.reports import build_report, detect_anomalies, period_dates, render_markdown
 from youtube.videos import get_video_details, get_video_statistics, search_videos
 
 __all__ = [
@@ -62,7 +63,9 @@ __all__ = [
     "YouTubeClient",
     "YouTubeError",
     "auth_status",
+    "build_report",
     "compare_channels",
+    "detect_anomalies",
     "get_analytics_service",
     "get_audience_insights",
     "get_channel_analytics",
@@ -82,6 +85,8 @@ __all__ = [
     "list_channel_videos",
     "list_comments",
     "list_playlists",
+    "period_dates",
+    "render_markdown",
     "resolve_auth",
     "run_oauth_flow",
     "search_videos",
