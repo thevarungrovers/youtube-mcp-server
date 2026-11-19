@@ -1,9 +1,10 @@
-"""Comment operations. Public comments only, read with the API key.
+"""Comment operations.
 
-Google refuses comment reads under the read-only OAuth scopes (it wants
-``youtube.force-ssl``, which can also post and delete), so these always use
-``YOUTUBE_API_KEY``, even when OAuth is set up. Comments held for review, or
-on private videos, are therefore not returned.
+Google refuses comment reads under the read-only OAuth scopes: it wants
+``youtube.force-ssl``, which can also post and delete. So comments are read
+with OAuth only if that scope was granted on purpose (``cli.py auth
+--with-comments``), and otherwise with ``YOUTUBE_API_KEY``. Either way this
+package only reads. Comments held for review are not returned.
 """
 
 from __future__ import annotations
@@ -51,7 +52,7 @@ def _format_thread(item: dict[str, Any], owner_id: str | None) -> dict[str, Any]
     }
 
 
-@operation(requires_api_key=True)
+@operation(requires_comment_access=True)
 def list_comments(
     client: YouTubeClient,
     video_id: str | None = None,
@@ -101,14 +102,14 @@ def list_comments(
         params["searchTerms"] = search
     if page_token:
         params["pageToken"] = page_token
-    response = client.execute(client.public_data.commentThreads().list(**params))
+    response = client.execute(client.comments.commentThreads().list(**params))
     return {
         "comments": [_format_thread(item, owner_id) for item in response.get("items", [])],
         "next_page_token": response.get("nextPageToken"),
     }
 
 
-@operation(requires_api_key=True)
+@operation(requires_comment_access=True)
 def get_comment_replies(
     client: YouTubeClient,
     comment_id: str,
@@ -137,7 +138,7 @@ def get_comment_replies(
     }
     if page_token:
         params["pageToken"] = page_token
-    response = client.execute(client.public_data.comments().list(**params))
+    response = client.execute(client.comments.comments().list(**params))
     return {
         "comment_id": comment_id.strip(),
         "replies": [_format_comment(item) for item in response.get("items", [])],

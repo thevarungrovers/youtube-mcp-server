@@ -114,24 +114,25 @@ class YouTubeClient:
             return self._reporting
 
     @property
-    def public_data(self) -> Resource:
-        """A YouTube Data API v3 service authorised by the API key alone.
+    def comments(self) -> Resource:
+        """A YouTube Data API v3 service that can read comments.
 
-        Some public reads (comments) are refused under the read-only OAuth
-        scopes -- Google wants ``youtube.force-ssl``, which can also write --
-        so they go through the key instead.
+        Google refuses comment reads under the read-only OAuth scopes. So this
+        is the OAuth service when the token has the opt-in comments scope
+        (``cli.py auth --with-comments``), otherwise a service authorised by
+        YOUTUBE_API_KEY alone.
 
         Raises:
-            AuthError: OAuth is active but no YOUTUBE_API_KEY is set.
+            AuthError: OAuth without the comments scope, and no API key.
         """
         auth = self.auth
-        if not auth.has_oauth:
+        if not auth.has_oauth or auth.oauth_reads_comments:
             return self.data
         if not auth.api_key:
             raise AuthError(
-                "Reading comments needs YOUTUBE_API_KEY in .env: Google refuses it under the read-only "
-                "OAuth scopes this tool uses. Create a key restricted to the YouTube Data API v3 "
-                "(see the README, 'API key') and add it to .env."
+                "Reading comments needs either YOUTUBE_API_KEY in .env (see the README, 'API key'), or "
+                "`python cli.py auth --with-comments`, which grants a scope that can also edit and delete. "
+                "Google refuses comments under the read-only OAuth scopes."
             )
         with self._lock:
             if self._public is None:

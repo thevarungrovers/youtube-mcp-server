@@ -61,7 +61,7 @@ def test_comments_with_oauth_but_no_key_explain_the_key_is_needed():
     from youtube.errors import AuthError
 
     c = YouTubeClient(auth=AuthContext(AuthMode.OAUTH), http=HttpMockSequence([]))
-    with pytest.raises(AuthError, match="YOUTUBE_API_KEY"):
+    with pytest.raises(AuthError, match="YOUTUBE_API_KEY.*--with-comments"):
         youtube.list_comments(c, video_id="v1")
 
 
@@ -72,5 +72,17 @@ def test_comments_with_oauth_and_key_use_the_key():
 
     http = HttpMockSequence([({"status": "200"}, "echo_request_uri")])
     c = YouTubeClient(auth=AuthContext(AuthMode.OAUTH, api_key="k"), http=http)
-    request = c.public_data.commentThreads().list(part="snippet", videoId="v1")
+    request = c.comments.commentThreads().list(part="snippet", videoId="v1")
     assert "key=k" in request.uri
+
+
+def test_comments_with_comments_scope_use_oauth_not_the_key():
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.http import HttpMockSequence
+
+    from youtube import AuthContext, AuthMode, YouTubeClient
+    from youtube.auth import SCOPE_FORCE_SSL, SCOPES
+
+    creds = Credentials(token="t", scopes=SCOPES + [SCOPE_FORCE_SSL])
+    c = YouTubeClient(auth=AuthContext(AuthMode.OAUTH, credentials=creds, api_key="k"), http=HttpMockSequence([]))
+    assert c.comments is c.data

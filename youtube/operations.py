@@ -29,23 +29,23 @@ class Operation:
     name: str
     requires_oauth: bool
     summary: str
-    requires_api_key: bool = False
+    requires_comment_access: bool = False
 
 
 OPERATIONS: dict[str, Operation] = {}
 
 
-def operation(*, requires_oauth: bool = False, requires_api_key: bool = False) -> Callable[[F], F]:
+def operation(*, requires_oauth: bool = False, requires_comment_access: bool = False) -> Callable[[F], F]:
     """Register a public operation; enforce OAuth for it when ``requires_oauth``.
 
-    ``requires_api_key`` marks operations that Google refuses under the read-only
-    OAuth scopes and that therefore always go through the API key (see
-    :attr:`YouTubeClient.public_data`).
+    ``requires_comment_access`` marks comment reads, which Google refuses under
+    the read-only OAuth scopes: they need YOUTUBE_API_KEY or an OAuth token with
+    the opt-in comments scope (see :attr:`YouTubeClient.comments`).
     """
 
     def decorator(fn: F) -> F:
         summary = (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else ""
-        OPERATIONS[fn.__name__] = Operation(fn.__name__, requires_oauth, summary, requires_api_key)
+        OPERATIONS[fn.__name__] = Operation(fn.__name__, requires_oauth, summary, requires_comment_access)
         if not requires_oauth:
             return fn
 

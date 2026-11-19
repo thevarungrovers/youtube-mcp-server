@@ -68,10 +68,15 @@ def cli() -> None:
 
 @cli.command()
 @click.option("--no-browser", is_flag=True, help="Print the consent URL instead of opening a browser.")
-def auth(no_browser: bool) -> None:
+@click.option(
+    "--with-comments", is_flag=True,
+    help="Also grant the scope Google requires to read comments over OAuth. It can also edit and delete; "
+    "this tool never does. Without it, comments use YOUTUBE_API_KEY.",
+)
+def auth(no_browser: bool, with_comments: bool) -> None:
     """Run the OAuth flow and save token.json."""
     try:
-        youtube.run_oauth_flow(open_browser=not no_browser)
+        youtube.run_oauth_flow(open_browser=not no_browser, with_comments=with_comments)
         click.secho(f"Saved OAuth token to {youtube.auth.token_file()}", fg="green")
         info = youtube.get_channel_info(YouTubeClient(interactive=False))
         click.echo(f"Authenticated as channel: {info['title']} ({info['id']})")
