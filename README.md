@@ -1,10 +1,10 @@
 # YouTube MCP Server
 
-A read-only Python toolkit for the **YouTube Data API v3** and **YouTube Analytics API v2**:
+A read-only Python toolkit for the **YouTube Data API v3**, **YouTube Analytics API v2** and **YouTube Reporting API**:
 
-- **`youtube/`** — a typed Python library (channels, videos, search, playlists, analytics, revenue)
-- **`mcp_server/`** — a [Model Context Protocol](https://modelcontextprotocol.io) server so AI agents (Claude Desktop, Claude Code, …) can call it as tools
-- **`cli.py`** — a command-line interface for manual testing
+- **`youtube/`**: a typed Python library covering channels, videos, search, playlists, comments, analytics, audience insights, revenue, channel comparison, reports and alerts, data export, and bulk reports
+- **`mcp_server/`**: a [Model Context Protocol](https://modelcontextprotocol.io) server with 19 tools, so AI agents (Claude Desktop, Claude Code, …) can use all of this
+- **`cli.py`**: a command-line interface for setup, manual checks, exports and scheduled jobs
 
 Everything is **read-only**: nothing here uploads, edits, or deletes. (The one exception is `cli.py reporting create-job`, which schedules Google-generated reports and does not touch the channel. Note that the default login includes a comments scope Google ties to write access; see [Comments](#comments).)
 
@@ -92,7 +92,9 @@ Analytics needs a role on the channel that can view analytics (Manager or Owner)
 A fallback for comments (see [Comments](#comments)), and for public data without OAuth.
 
 1. **APIs & Services → Credentials → Create credentials → API key**.
-2. **Edit API key → API restrictions → Restrict key** → tick only **YouTube Data API v3** → **Save**.
+2. **Edit API key**:
+   - **Application restrictions:** leave **None**. *Websites* only suits browser use, and *IP addresses* breaks when your IP changes.
+   - **API restrictions:** **Restrict key** → tick only **YouTube Data API v3** → **Save**. A leaked key can then only read public YouTube data.
 3. Add it to `.env`:
    ```bash
    cp .env.example .env
@@ -111,6 +113,7 @@ With only an API key there is no "my channel": pass `--channel UC...` / `@handle
 | `Error 403: access_denied` ("can only be accessed by developer-approved testers") | Add your account under **Audience → Test users**. If it is already listed, or the error appears after picking a Brand Account channel, **publish the app** (step 3.4). Then delete `token.json` and sign in again. |
 | "Google hasn't verified this app" | Normal. Click **Advanced → Go to (app name)**. |
 | "could not be refreshed" | The login expired or was revoked. Run `python cli.py auth`. If it happens every 7 days, the app is still in *Testing*: publish it. |
+| A CLI command unexpectedly opens a Google sign-in | Same cause: the saved login could not be refreshed, so the CLI signs in again (the MCP server never does). Pick the same channel. |
 
 **Scopes requested:** `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly` (read-only), plus `youtube.force-ssl` for comments unless `--read-only` (see [Comments](#comments)).
 
@@ -122,6 +125,11 @@ Comments are read with **OAuth first, then the API key**:
 2. **API key.** If the login has no comment access (made with `--read-only`), or Google refuses the OAuth call, comments fall back to `YOUTUBE_API_KEY` (step 6).
 
 For a strictly read-only token, sign in with `--read-only` and set an API key.
+
+Limits:
+- `order=relevance` works only for one video. YouTube rejects it for a whole channel, so channel-wide comments are newest first (`time`). The tool returns a clear `INVALID_REQUEST` instead of Google's opaque 400.
+- Comments held for review, or on private videos, are not returned.
+- Each page of up to 100 threads costs 1 quota unit. A thread includes up to 5 replies; `get_comment_replies` fetches the rest.
 
 ### Optional settings (`.env`)
 
@@ -208,7 +216,7 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 ### Tools
 
 | Tool | Needs | Description |
-|------|:-----------:|-------------|
+|------|:-----:|-------------|
 | `auth_status` | | Which credentials are available and which tools work |
 | `get_channel_info` | | Channel name, description, subscriber/video/view counts |
 | `list_channel_videos` | | A channel's uploads with basic stats (paginated) |
@@ -233,7 +241,7 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 
 Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 
-The server **never opens a browser**. Run `python cli.py auth` once in a terminal; if you do this while the server is running, it picks up the new token on its next call.
+The server **never opens a browser**. Run `python cli.py auth` once in a terminal; if you do this while the server is running, it picks up the new token on its next call. Changes to `.env` (such as adding `YOUTUBE_API_KEY`) are read at startup, so restart or reconnect the server after editing it (in Claude Code: `/mcp` → reconnect).
 
 ### Running it
 
@@ -299,7 +307,16 @@ yt = get_youtube_service()
 
 ## Quota
 
-The YouTube Data API has a daily quota (10,000 units by default, reset at midnight Pacific). Most reads cost **1 unit**; **search costs 100**. `list_channel_videos` reads the channel's uploads playlist rather than searching, so it's cheap. Quota and rate-limit errors are reported as `QUOTA_EXCEEDED` with guidance rather than a stack trace.
+The YouTube Data API has a daily quota (10,000 units by default, reset at midnight Pacific). Quota and rate-limit errors are reported as `QUOTA_EXCEEDED` with guidance rather than a stack trace.
+
+| Call | Approximate cost |
+|------|------------------|
+| Most reads (channel, videos, playlists, comments page, trending) | 1 unit |
+| `search_videos` | 100 units |
+| `compare_channels` | ~3 units per channel |
+| `list_channel_videos` | 1-2 units per page (reads the uploads playlist, not search) |
+
+The Analytics and Reporting APIs (analytics, insights, reports, alerts, export) have separate, generous quotas and don't use these units.
 
 ## Development
 
@@ -314,17 +331,17 @@ youtube/
   auth.py        credential discovery, OAuth flow, get_youtube_service()
   client.py      YouTubeClient: lazy services, error translation, token reload
   errors.py      typed exceptions + Google API error mapping
-  operations.py  registry of operations and their OAuth requirement
+  operations.py  registry of operations and what credentials each needs
   channels.py    channel info, channel videos
   videos.py      video details, bulk stats, search
   playlists.py   playlists, playlist items
   comments.py    comment threads, replies
   benchmark.py   channel comparison, trending chart
+  analytics.py   channel/video analytics, top videos, revenue
+  insights.py    audience breakdowns, search terms
   reports.py     period reports, Markdown rendering, anomaly alerts, webhook
   export.py      daily datasets as CSV / JSON Lines
   reporting.py   YouTube Reporting API: report types, jobs, CSV downloads
-  analytics.py   channel/video analytics, top videos, revenue
-  insights.py    audience breakdowns, search terms
 mcp_server/
   server.py      MCP tools
 cli.py           click CLI
