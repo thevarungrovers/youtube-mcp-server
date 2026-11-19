@@ -41,47 +41,75 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-### 2. Google Cloud credentials
+### 2. Create a Google Cloud project
 
 In the [Google Cloud console](https://console.cloud.google.com/):
 
-1. **Create or pick a project.**
-2. **Enable the APIs** (APIs & Services → Library):
-   - *YouTube Data API v3* — required
-   - *YouTube Analytics API* — required for analytics/revenue
-3. **OAuth (recommended — unlocks everything):**
-   1. APIs & Services → OAuth consent screen: configure it (External is fine for personal use) and add your Google account under **Test users**.
-   2. APIs & Services → Credentials → **Create credentials → OAuth client ID** → application type **Desktop app**.
-   3. Download the JSON and save it as **`client_secret.json`** in the project root.
-   4. Run:
-      ```bash
-      python cli.py auth                # opens a browser for consent
-      python cli.py auth --no-browser   # prints the URL instead
-      ```
-      Sign in with the Google account that owns (or manages) the channel. The token is saved to `token.json`.
+1. Create a project, or select an existing one.
+2. **APIs & Services → Library**: enable **YouTube Data API v3** and **YouTube Analytics API**.
 
-      **Choosing an account:** after you sign in, Google may list your personal profile *and* the YouTube channels you manage. Brand Account channels show up here labelled "YouTube". **Pick the YouTube channel you want to analyze, not your personal profile.** The token is tied to the channel you pick, and "my channel" means that channel everywhere: channel info, video lists, and every analytics tool. If you pick a profile with no channel or no videos, analytics comes back empty or fails.
+### 3. Configure the OAuth consent screen
 
-      After the flow finishes, `cli.py auth` prints the channel it connected to. To switch channels, delete `token.json` and run `python cli.py auth` again. Analytics also needs a role on the channel that can view analytics (for example Manager or Owner). Revenue additionally needs a monetized channel.
-4. **API key (optional — public data only):** Credentials → Create credentials → API key. Restrict it to the YouTube Data API v3, then:
+Go to **Google Auth Platform** (older consoles: **APIs & Services → OAuth consent screen**).
+
+1. **Branding**: set an app name and support email.
+2. **Audience → User type**: choose **External**. If it shows Internal, click **Make external**.
+3. **Audience → Test users**: add the Google account you will sign in with.
+4. **Audience → Publishing status**: click **Publish app** and confirm. Do not submit for verification.
+
+Publish it, because in *Testing* the login expires every 7 days (an AI agent can't sign in again on its own), and signing in as a Brand Account channel is usually refused. A published but unverified app works fine for this tool: you click past a warning when signing in (step 5), and it is limited to 100 users.
+
+### 4. Create the OAuth client
+
+1. **Google Auth Platform → Clients → Create client** (or **APIs & Services → Credentials → Create credentials → OAuth client ID**).
+2. Application type: **Desktop app**.
+3. Download the JSON and save it as **`client_secret.json`** in the project root.
+
+### 5. Sign in
+
+```bash
+python cli.py auth                # opens a browser
+python cli.py auth --no-browser   # prints the URL instead
+```
+
+1. Sign in with the Google account that owns or manages the channel.
+2. If Google says **"Google hasn't verified this app"**, click **Advanced → Go to (app name)**.
+3. **Choose the account:** Google lists your personal profile *and* the channels you manage (Brand Account channels are labelled *YouTube*). **Pick the YouTube channel you want to analyze**, not your personal profile.
+4. Accept the read-only permissions.
+5. The command prints the connected channel. Confirm it is the right one, then run:
+
+```bash
+python cli.py auth-status
+```
+
+The token is saved to `token.json`. "My channel" means the channel you picked, everywhere. To switch channels, delete `token.json` and run `python cli.py auth` again.
+
+Analytics needs a role on the channel that can view analytics (Manager or Owner). Revenue also needs a monetized channel.
+
+### 6. API key (optional)
+
+Only needed for public data without OAuth, e.g. as a fallback.
+
+1. **APIs & Services → Credentials → Create credentials → API key**.
+2. **Edit API key → API restrictions → Restrict key** → tick only **YouTube Data API v3** → **Save**.
+3. Add it to `.env`:
    ```bash
    cp .env.example .env
    # edit .env: YOUTUBE_API_KEY=...
    ```
-   With only an API key, there is no "my channel" — pass `--channel UC...` / `@handle`, or set `YOUTUBE_CHANNEL_ID` in `.env`.
 
-> **Tip:** While your OAuth consent screen is in *Testing* status, Google expires refresh tokens after 7 days. If you start seeing "could not be refreshed", run `python cli.py auth` again, or publish the consent screen.
+With only an API key there is no "my channel": pass `--channel UC...` / `@handle`, or set `YOUTUBE_CHANNEL_ID` in `.env`. Analytics is not available.
 
 `client_secret.json`, `token.json` and `.env` are gitignored. Never commit them.
 
 ### Troubleshooting sign-in
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `Error 403: org_internal` | The OAuth consent screen's user type is **Internal**, which only admits users of the project's Google Workspace organization. Brand Account channels count as outside the organization, even when a member manages them. | Google Auth Platform → **Audience** → **Make external**. Keep the publishing status on **Testing**, add the Google account you sign in with under **Test users**, delete `token.json`, and run `python cli.py auth` again. If switching to External is blocked by an organization policy, ask your Workspace admin, or create the Cloud project under a personal Google account. |
-| `Error 403: access_denied` | The app is in Testing and the account isn't listed as a test user. | Add the account under **Audience → Test users**. |
-| "Google hasn't verified this app" | Normal for a private app that hasn't been through Google's verification. | Click **Advanced → Go to (app name)**. |
-| "could not be refreshed" after about a week | Apps in **Testing** get refresh tokens that expire after 7 days. | Run `python cli.py auth` again, or set the publishing status to **In production**. That works unverified, with the warning above, for up to 100 users. |
+| Error | Fix |
+|-------|-----|
+| `Error 403: org_internal` | The consent screen is **Internal**. **Audience → Make external**, then sign in again. If External is blocked by an organization policy, ask your Workspace admin, or create the Cloud project under a personal Google account. |
+| `Error 403: access_denied` ("can only be accessed by developer-approved testers") | Add your account under **Audience → Test users**. If it is already listed, or the error appears after picking a Brand Account channel, **publish the app** (step 3.4). Then delete `token.json` and sign in again. |
+| "Google hasn't verified this app" | Normal. Click **Advanced → Go to (app name)**. |
+| "could not be refreshed" | The login expired or was revoked. Run `python cli.py auth`. If it happens every 7 days, the app is still in *Testing*: publish it. |
 
 **Scopes requested** (all read-only): `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly`.
 
