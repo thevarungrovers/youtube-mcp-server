@@ -1,0 +1,26 @@
+# Credentials -- never commit these
+client_secret.json
+client_secret*.json
+token.json
+*.pickle
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Local planning notes
+.claude/plans/
