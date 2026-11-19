@@ -121,6 +121,7 @@ With only an API key there is no "my channel": pass `--channel UC...` / `@handle
 | `YOUTUBE_CHANNEL_ID` | Default channel (ID or `@handle`) when only an API key is set |
 | `YOUTUBE_CLIENT_SECRET_FILE` | Path to the OAuth client JSON (default `client_secret.json`) |
 | `YOUTUBE_TOKEN_FILE` | Where to store the OAuth token (default `token.json`) |
+| `YOUTUBE_REPORT_WEBHOOK` | Slack-compatible webhook for `report` and `alerts` (a secret) |
 
 Relative paths are resolved against the project root, so the server works no matter which directory it's launched from.
 
@@ -141,13 +142,26 @@ python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]       
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
 python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key
 python cli.py replies THREAD_ID                                                                  # API key
+python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
+python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found
 python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
 python cli.py trending --region CA [--category 26]
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
 ```
 
-Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
+Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a code and exit with status 1.
+
+### Scheduled reports
+
+`report` and `alerts` read the webhook from `YOUTUBE_REPORT_WEBHOOK` in `.env` (any Slack-compatible incoming webhook), so a cron job is enough. For example, a report every Monday at 9:00 and alerts every morning:
+
+```cron
+0 9 * * 1  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py report --period last_week
+30 8 * * *  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py alerts --days 3
+```
+
+These need a working OAuth login. Publish the consent screen (setup step 3), or the login expires every 7 days and the jobs fail with `AUTH_ERROR`.
 
 ## MCP server
 
@@ -164,6 +178,8 @@ Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
 | `get_playlist_items` | | Videos in a playlist |
 | `compare_channels` | | Benchmark up to 10 channels: subscribers, median views, engagement rate, upload frequency, share of Shorts |
 | `get_trending_videos` | | YouTube's most-popular chart for a country, optionally one category |
+| `get_channel_report` | ✓ | Ready-made report: totals and change vs the previous period, top videos, audience, searches (JSON + Markdown) |
+| `detect_anomalies` | ✓ | Days with unusual views (spikes/drops) or subscriber losses |
 | `get_channel_analytics` | ✓ | Views, watch time, subscribers gained/lost over a date range |
 | `get_video_analytics` | ✓ | Per-video traffic sources, audience retention, demographics |
 | `get_top_videos` | ✓ | Top N videos by a metric over a date range |
@@ -264,6 +280,7 @@ youtube/
   playlists.py   playlists, playlist items
   comments.py    comment threads, replies
   benchmark.py   channel comparison, trending chart
+  reports.py     period reports, Markdown rendering, anomaly alerts, webhook
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
 mcp_server/

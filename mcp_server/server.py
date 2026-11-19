@@ -372,6 +372,43 @@ def get_search_terms(
     return youtube.get_search_terms(client, start, end, video_id=video_id, limit=limit)
 
 
+@mcp.tool(title="Build a channel report (OAuth)", annotations=READ_ONLY)
+@errors_reach_the_caller
+def get_channel_report(
+    period: Annotated[
+        str | None,
+        Field(description="last_7_days, last_28_days, last_week (previous Mon-Sun) or last_month. Ignored when dates are given."),
+    ] = "last_week",
+    start_date: StartDate = None,
+    end_date: EndDate = None,
+    top_n: Annotated[int, Field(ge=1, le=25, description="Top videos to include, each with its main traffic source.")] = 5,
+) -> dict[str, Any]:
+    """A ready-made performance report: totals and % change vs the previous period, net subscribers, top videos, audience highlights and top YouTube searches.
+
+    Includes the same report rendered as Markdown under `markdown`, ready to share. Requires OAuth.
+    """
+    if start_date or end_date:
+        start, end = _dates(start_date, end_date, 28)
+    else:
+        start, end = youtube.period_dates(period or "last_week")
+    report = youtube.build_report(client, start, end, top_n=top_n)
+    return {**report, "markdown": youtube.render_markdown(report)}
+
+
+@mcp.tool(title="Detect unusual days (OAuth)", annotations=READ_ONLY)
+@errors_reach_the_caller
+def detect_anomalies(
+    days: Annotated[int, Field(ge=1, le=90, description="Recent days to check.")] = 14,
+    baseline_days: Annotated[int, Field(ge=7, le=180, description="Days before each checked day used as its baseline.")] = 28,
+    threshold: Annotated[float, Field(gt=1, description="Spike: views >= threshold x baseline median; drop: <= median / threshold.")] = 2.0,
+) -> dict[str, Any]:
+    """Find recent days with unusual views (spikes and drops against the median of the days before) and days that lost subscribers.
+
+    Data ends ~2 days ago because analytics lag. Requires OAuth.
+    """
+    return youtube.detect_anomalies(client, days=days, baseline_days=baseline_days, threshold=threshold)
+
+
 @mcp.tool(title="List a channel's playlists", annotations=READ_ONLY)
 @errors_reach_the_caller
 def list_playlists(
