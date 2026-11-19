@@ -113,32 +113,48 @@ class YouTubeClient:
                 self._reporting = build_service(auth, "youtubereporting", "v1", http=self._http)
             return self._reporting
 
-    @property
-    def comments(self) -> Resource:
-        """A YouTube Data API v3 service that can read comments.
+    def comment_services(self) -> list[Resource]:
+        """Services that can read comments, in the order to try them: OAuth first, then the API key.
 
-        Google refuses comment reads under the read-only OAuth scopes. So this
-        is the OAuth service when the token has the opt-in comments scope
-        (``cli.py auth --with-comments``), otherwise a service authorised by
-        YOUTUBE_API_KEY alone.
+        Google refuses comment reads under the read-only OAuth scopes, so OAuth
+        is used only when the token has the comments scope (``cli.py auth``
+        grants it unless ``--read-only``); YOUTUBE_API_KEY is the fallback.
 
         Raises:
             AuthError: OAuth without the comments scope, and no API key.
         """
         auth = self.auth
-        if not auth.has_oauth or auth.oauth_reads_comments:
-            return self.data
-        if not auth.api_key:
+        if not auth.has_oauth:
+            return [self.data]
+        services = [self.data] if auth.oauth_reads_comments else []
+        if auth.api_key:
+            with self._lock:
+                if self._public is None:
+                    key_only = AuthContext(AuthMode.API_KEY, api_key=auth.api_key)
+                    self._public = build_service(key_only, "youtube", "v3", http=self._http)
+                services.append(self._public)
+        if not services:
             raise AuthError(
-                "Reading comments needs either YOUTUBE_API_KEY in .env (see the README, 'API key'), or "
-                "`python cli.py auth --with-comments`, which grants a scope that can also edit and delete. "
-                "Google refuses comments under the read-only OAuth scopes."
+                "Reading comments needs comment access: run `python cli.py auth` again without --read-only "
+                "(Google requires a scope that can also edit and delete; this tool never does), or set "
+                "YOUTUBE_API_KEY in .env (see the README, 'API key')."
             )
-        with self._lock:
-            if self._public is None:
-                key_only = AuthContext(AuthMode.API_KEY, api_key=auth.api_key)
-                self._public = build_service(key_only, "youtube", "v3", http=self._http)
-            return self._public
+        return services
+
+    def execute_comments(self, build: Any) -> dict[str, Any]:
+        """Run ``build(service)`` against each comment-capable service until one is allowed.
+
+        A refusal (AuthError) on OAuth falls through to the API key; any other
+        error, or a refusal on the last service, is raised.
+        """
+        services = self.comment_services()
+        for i, service in enumerate(services):
+            try:
+                return self.execute(build(service))
+            except AuthError:
+                if i == len(services) - 1:
+                    raise
+        raise AssertionError("unreachable")
 
     def execute(self, request: Any, *, api: str = "YouTube Data API") -> dict[str, Any]:
         """Execute a ``googleapiclient`` request, translating failures.

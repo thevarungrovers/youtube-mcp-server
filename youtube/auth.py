@@ -47,9 +47,9 @@ SCOPES: list[str] = [
     SCOPE_ANALYTICS_MONETARY,
 ]
 
-#: Opt-in (``cli.py auth --with-comments``): Google only lets OAuth read comments
-#: with this scope, which also allows editing and deleting. This package never
-#: writes; without it, comments are read with YOUTUBE_API_KEY instead.
+#: Requested by ``cli.py auth`` unless ``--read-only``: Google only lets OAuth
+#: read comments with this scope, which also allows editing and deleting. This
+#: package never writes; without it, comments are read with YOUTUBE_API_KEY.
 SCOPE_FORCE_SSL = "https://www.googleapis.com/auth/youtube.force-ssl"
 
 _API_KEY_PLACEHOLDER = "your_api_key_here"
@@ -187,14 +187,15 @@ def _load_oauth_token(notes: list[str]) -> Credentials | None:
     return None
 
 
-def run_oauth_flow(*, open_browser: bool = True, with_comments: bool = False) -> Credentials:
+def run_oauth_flow(*, open_browser: bool = True, with_comments: bool = True) -> Credentials:
     """Run the OAuth Desktop-app consent flow and save the token to token.json.
 
     Args:
         open_browser: Open the consent page automatically. When False, the URL
             is printed so it can be opened by hand.
-        with_comments: Also ask for :data:`SCOPE_FORCE_SSL`, so comments can be
-            read without an API key. That scope can also edit and delete.
+        with_comments: Also ask for :data:`SCOPE_FORCE_SSL` (the default), so
+            comments can be read over OAuth. That scope can also edit and
+            delete; pass False for a strictly read-only token.
 
     Returns:
         The new OAuth credentials.
@@ -376,8 +377,7 @@ def auth_status() -> dict[str, Any]:
         next_steps.append("For public data only: set YOUTUBE_API_KEY in .env.")
     elif not key_present and not (active and active.oauth_reads_comments):
         next_steps.append(
-            "For comments: set YOUTUBE_API_KEY in .env, or run `python cli.py auth --with-comments` "
-            "(grants a scope that can also edit and delete)."
+            "For comments: run `python cli.py auth` again (without --read-only), or set YOUTUBE_API_KEY in .env."
         )
 
     granted = sorted(active.credentials.scopes or []) if oauth and active and active.credentials else []
