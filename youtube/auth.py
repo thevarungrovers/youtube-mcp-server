@@ -341,7 +341,11 @@ def auth_status() -> dict[str, Any]:
     oauth = bool(active and active.has_oauth)
     available = "both" if oauth and key_present else "oauth" if oauth else "api_key" if key_present else "none"
 
-    supported = sorted(name for name, op in OPERATIONS.items() if active and (oauth or not op.requires_oauth))
+    supported = sorted(
+        name
+        for name, op in OPERATIONS.items()
+        if active and (oauth or not op.requires_oauth) and (key_present or not op.requires_api_key)
+    )
     unsupported = sorted(set(OPERATIONS) - set(supported))
 
     next_steps: list[str] = []
@@ -353,8 +357,12 @@ def auth_status() -> dict[str, Any]:
                 "For analytics: create a Desktop-app OAuth client, save it as "
                 f"{secret_path.name}, then run `python cli.py auth`."
             )
-    if not key_present and not oauth:
-        next_steps.append("For public data only: set YOUTUBE_API_KEY in .env.")
+    if not key_present:
+        next_steps.append(
+            "For comments (and public data without OAuth): set YOUTUBE_API_KEY in .env."
+            if oauth
+            else "For public data only: set YOUTUBE_API_KEY in .env."
+        )
 
     granted = sorted(active.credentials.scopes or []) if oauth and active and active.credentials else []
     return {

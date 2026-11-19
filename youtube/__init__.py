@@ -31,6 +31,7 @@ from youtube.auth import (
 )
 from youtube.channels import get_channel_info, list_channel_videos
 from youtube.client import YouTubeClient
+from youtube.comments import get_comment_replies, list_comments
 from youtube.errors import (
     APIError,
     AuthError,
@@ -64,6 +65,7 @@ __all__ = [
     "get_audience_insights",
     "get_channel_analytics",
     "get_channel_info",
+    "get_comment_replies",
     "get_playlist_details",
     "get_playlist_items",
     "get_revenue",
@@ -75,6 +77,7 @@ __all__ = [
     "get_youtube_service",
     "last_n_days",
     "list_channel_videos",
+    "list_comments",
     "list_playlists",
     "resolve_auth",
     "run_oauth_flow",

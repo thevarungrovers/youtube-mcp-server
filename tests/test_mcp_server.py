@@ -18,6 +18,8 @@ EXPECTED_TOOLS = {
     "get_playlist_items",
     "get_audience_insights",
     "get_search_terms",
+    "list_comments",
+    "get_comment_replies",
 }
 
 

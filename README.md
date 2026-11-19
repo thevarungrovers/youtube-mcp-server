@@ -86,9 +86,9 @@ The token is saved to `token.json`. "My channel" means the channel you picked, e
 
 Analytics needs a role on the channel that can view analytics (Manager or Owner). Revenue also needs a monetized channel.
 
-### 6. API key (optional)
+### 6. API key (needed for comments)
 
-Only needed for public data without OAuth, e.g. as a fallback.
+Needed to read comments, and for public data without OAuth (e.g. as a fallback).
 
 1. **APIs & Services → Credentials → Create credentials → API key**.
 2. **Edit API key → API restrictions → Restrict key** → tick only **YouTube Data API v3** → **Save**.
@@ -139,6 +139,8 @@ python cli.py top --metric views --days 30 [-n 10]   # OAuth; metrics: views, wa
 python cli.py revenue --days 28                      # OAuth, monetized channels
 python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]          # OAuth; see --help for all breakdowns
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
+python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key
+python cli.py replies THREAD_ID                                                                  # API key
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
 ```
@@ -149,7 +151,7 @@ Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
 
 ### Tools
 
-| Tool | Needs OAuth | Description |
+| Tool | Needs | Description |
 |------|:-----------:|-------------|
 | `auth_status` | | Which credentials are available and which tools work |
 | `get_channel_info` | | Channel name, description, subscriber/video/view counts |
@@ -164,6 +166,10 @@ Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
 | `get_revenue` | ✓ | Estimated revenue and CPM (monetized channels only) |
 | `get_audience_insights` | ✓ | Countries, cities, devices, playback locations and embedding sites, traffic sources and referring sites, subscribers vs not, Shorts vs long-form, sharing, cards |
 | `get_search_terms` | ✓ | The YouTube search terms that led viewers to your videos |
+| `list_comments` | key | Public comment threads on a video or a whole channel, with whether the channel replied |
+| `get_comment_replies` | key | All replies to one comment thread |
+
+✓ = OAuth. *key* = `YOUTUBE_API_KEY`, even when OAuth is set up: Google refuses comment reads under the read-only OAuth scopes (it wants `youtube.force-ssl`, which can also post and delete), so comments go through the key.
 
 Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 
@@ -252,6 +258,7 @@ youtube/
   channels.py    channel info, channel videos
   videos.py      video details, bulk stats, search
   playlists.py   playlists, playlist items
+  comments.py    comment threads, replies
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
 mcp_server/

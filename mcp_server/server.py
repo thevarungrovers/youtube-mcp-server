@@ -43,6 +43,9 @@ only; analytics tools (get_channel_analytics, get_video_analytics,
 get_top_videos, get_revenue, get_audience_insights, get_search_terms) need OAuth, set up by the user running
 `python cli.py auth`.
 
+Comments: list_comments reads public comments on one video or on a whole
+channel (any channel, API key is enough).
+
 Channels are given as a channel ID (UC...) or a handle (@name). Leave the
 channel empty to mean the authenticated user's own channel (OAuth) or the
 configured default (API key).
@@ -181,6 +184,38 @@ def search_videos(
         channel_id=channel_id,
         page_token=page_token,
     )
+
+
+@mcp.tool(title="List comments", annotations=READ_ONLY)
+@errors_reach_the_caller
+def list_comments(
+    video_id: Annotated[str | None, Field(description="Comments on this video. Omit for comments on all of the channel's videos.")] = None,
+    channel: Channel = None,
+    order: Annotated[str, Field(description="time (newest first) or relevance.")] = "time",
+    search: Annotated[str | None, Field(description="Only threads containing this text.")] = None,
+    max_results: Annotated[int, Field(ge=1, le=100, description="Threads per page, 1-100.")] = 50,
+    page_token: PageToken = None,
+) -> dict[str, Any]:
+    """Public comment threads on a video or on all of a channel's videos: text, author, likes, date, reply count, first replies.
+
+    owner_replied tells whether the channel answered in the included replies, which helps find unanswered
+    questions. Paginated via next_page_token; 1 quota unit per page. Held-for-review comments are not visible.
+    """
+    return youtube.list_comments(
+        client, video_id=video_id, channel=channel, order=order, search=search,
+        max_results=max_results, page_token=page_token,
+    )
+
+
+@mcp.tool(title="Get replies to a comment", annotations=READ_ONLY)
+@errors_reach_the_caller
+def get_comment_replies(
+    comment_id: Annotated[str, Field(description="thread_id of a comment from list_comments.")],
+    max_results: Annotated[int, Field(ge=1, le=100, description="Replies per page, 1-100.")] = 50,
+    page_token: PageToken = None,
+) -> dict[str, Any]:
+    """All replies to one comment thread, for threads with more replies than list_comments includes."""
+    return youtube.get_comment_replies(client, comment_id, max_results=max_results, page_token=page_token)
 
 
 @mcp.tool(title="Get channel analytics (OAuth)", annotations=READ_ONLY)
