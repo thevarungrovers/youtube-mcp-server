@@ -59,6 +59,10 @@ In the [Google Cloud console](https://console.cloud.google.com/):
       python cli.py auth --no-browser   # prints the URL instead
       ```
       Sign in with the Google account that owns (or manages) the channel. The token is saved to `token.json`.
+
+      **Choosing an account:** after you sign in, Google may list your personal profile *and* the YouTube channels you manage. Brand Account channels show up here labelled "YouTube". **Pick the YouTube channel you want to analyze, not your personal profile.** The token is tied to the channel you pick, and "my channel" means that channel everywhere: channel info, video lists, and every analytics tool. If you pick a profile with no channel or no videos, analytics comes back empty or fails.
+
+      After the flow finishes, `cli.py auth` prints the channel it connected to. To switch channels, delete `token.json` and run `python cli.py auth` again. Analytics also needs a role on the channel that can view analytics (for example Manager or Owner). Revenue additionally needs a monetized channel.
 4. **API key (optional — public data only):** Credentials → Create credentials → API key. Restrict it to the YouTube Data API v3, then:
    ```bash
    cp .env.example .env
