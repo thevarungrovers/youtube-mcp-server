@@ -31,6 +31,7 @@ from youtube.analytics import GRANULARITIES, TOP_METRICS, VIDEO_SECTIONS
 from youtube.comments import COMMENT_ORDERS
 from youtube.export import DATASETS, FORMATS, export_dataset, write_rows
 from youtube.insights import BREAKDOWNS, DEFAULT_BREAKDOWNS, MAX_SEARCH_TERMS
+from youtube.reporting import parse_report, save_report
 from youtube.reports import PERIODS, post_webhook
 from youtube.videos import SEARCH_ORDERS
 
@@ -378,6 +379,61 @@ def playlist(playlist_id: str, limit: int, stats: bool) -> None:
             **youtube.get_playlist_items(c, playlist_id, max_results=limit, include_stats=stats),
         }
     )
+
+
+@cli.group()
+def reporting() -> None:
+    """Bulk daily CSV reports from the YouTube Reporting API (OAuth)."""
+
+
+@reporting.command("types")
+def reporting_types() -> None:
+    """List the report types available to your channel."""
+    _run(youtube.list_report_types)
+
+
+@reporting.command("jobs")
+def reporting_jobs() -> None:
+    """List your scheduled report jobs."""
+    _run(youtube.list_reporting_jobs)
+
+
+@reporting.command("create-job")
+@click.argument("report_type_id")
+@click.option("--name", default=None, help="Label for the job (default: the type ID).")
+def reporting_create_job(report_type_id: str, name: str | None) -> None:
+    """Schedule daily reports of one type (e.g. channel_reach_basic_a1). First reports in ~48h."""
+    _run(lambda c: youtube.create_reporting_job(c, report_type_id, name=name))
+
+
+@reporting.command("reports")
+@click.argument("job_id")
+@click.option("--created-after", default=None, help="Only reports created after this RFC 3339 time.")
+def reporting_reports(job_id: str, created_after: str | None) -> None:
+    """List the reports a job has produced, newest first."""
+    _run(lambda c: youtube.list_reports(c, job_id, created_after=created_after))
+
+
+@reporting.command("download")
+@click.argument("job_id")
+@click.option("--latest", default=1, show_default=True, type=click.IntRange(1, 60), help="How many of the newest reports.")
+@click.option("--out-dir", default="exports/reporting", show_default=True)
+def reporting_download(job_id: str, latest: int, out_dir: str) -> None:
+    """Download a job's newest reports as <job>_<day>.csv."""
+    try:
+        client = YouTubeClient(interactive=True)
+        reports = youtube.list_reports(client, job_id)["reports"][:latest]
+        if not reports:
+            click.echo("No reports yet. New jobs produce their first reports within about 48 hours.")
+            return
+        for report in reports:
+            data = youtube.download_report(client, report["download_url"])
+            day = (report["start_time"] or "unknown")[:10]
+            path = save_report(data, f"{out_dir}/{job_id}_{day}.csv")
+            click.echo(f"{day}: {len(parse_report(data))} rows -> {path}")
+    except YouTubeError as exc:
+        click.secho(f"{exc.code}: {exc}", fg="red", err=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

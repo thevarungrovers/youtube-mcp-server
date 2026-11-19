@@ -1,7 +1,7 @@
 """A long-lived handle on the YouTube APIs that every operation goes through.
 
-:class:`YouTubeClient` resolves credentials lazily, builds the Data and
-Analytics services on first use, and runs every request through
+:class:`YouTubeClient` resolves credentials lazily, builds the Data,
+Analytics and Reporting services on first use, and runs every request through
 :meth:`YouTubeClient.execute`, which turns Google's errors into the
 package's own (see :mod:`youtube.errors`).
 
@@ -50,6 +50,7 @@ class YouTubeClient:
         self._data: Resource | None = None
         self._analytics: Resource | None = None
         self._public: Resource | None = None
+        self._reporting: Resource | None = None
         # httplib2 connections are not thread-safe, and MCP runs sync tools on
         # worker threads, so requests are serialised.
         self._lock = threading.RLock()
@@ -67,6 +68,7 @@ class YouTubeClient:
             self._data = None
             self._analytics = None
             self._public = None
+            self._reporting = None
             self._token_mtime = self._current_token_mtime()
 
     @property
@@ -99,6 +101,17 @@ class YouTubeClient:
             if self._analytics is None:
                 self._analytics = build_service(auth, "youtubeAnalytics", "v2", http=self._http)
             return self._analytics
+
+    @property
+    def reporting(self) -> Resource:
+        """The YouTube Reporting API v1 service (bulk CSV reports). Raises OAuthRequiredError without OAuth."""
+        auth = self.auth
+        if not auth.has_oauth:
+            raise oauth_required("YouTube Reporting")
+        with self._lock:
+            if self._reporting is None:
+                self._reporting = build_service(auth, "youtubereporting", "v1", http=self._http)
+            return self._reporting
 
     @property
     def public_data(self) -> Resource:

@@ -46,6 +46,13 @@ from youtube.errors import (
 from youtube.insights import get_audience_insights, get_search_terms
 from youtube.operations import OPERATIONS
 from youtube.playlists import get_playlist_details, get_playlist_items, list_playlists
+from youtube.reporting import (
+    create_reporting_job,
+    download_report,
+    list_report_types,
+    list_reporting_jobs,
+    list_reports,
+)
 from youtube.reports import build_report, detect_anomalies, period_dates, render_markdown
 from youtube.videos import get_video_details, get_video_statistics, search_videos
 
@@ -65,7 +72,9 @@ __all__ = [
     "auth_status",
     "build_report",
     "compare_channels",
+    "create_reporting_job",
     "detect_anomalies",
+    "download_report",
     "get_analytics_service",
     "get_audience_insights",
     "get_channel_analytics",
@@ -85,6 +94,9 @@ __all__ = [
     "list_channel_videos",
     "list_comments",
     "list_playlists",
+    "list_report_types",
+    "list_reporting_jobs",
+    "list_reports",
     "period_dates",
     "render_markdown",
     "resolve_auth",
