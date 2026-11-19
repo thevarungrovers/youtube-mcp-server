@@ -131,8 +131,11 @@ def _granular(
         "totals": totals[0] if totals else {m: 0 for m in metrics},
     }
     if granularity != "total":
+        # A month series must end on the 1st of its last month; YouTube still
+        # returns that whole month (to date). The totals keep the real end date.
+        rows_end = end[:8] + "01" if granularity == "month" else end
         result["granularity"] = granularity
-        result["rows"] = _query(client, start, end, metrics, dimensions=granularity, sort=granularity, **kwargs)
+        result["rows"] = _query(client, start, rows_end, metrics, dimensions=granularity, sort=granularity, **kwargs)
     return result
 
 

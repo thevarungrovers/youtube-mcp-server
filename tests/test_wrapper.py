@@ -188,3 +188,16 @@ def test_revenue_unavailable_for_unmonetized_channel():
     c, _ = client(err(403, "forbidden", "Forbidden"), oauth=True)
     result = youtube.get_revenue(c, "2025-01-01", "2025-01-31")
     assert result["available"] is False and "Partner Program" in result["reason"]
+
+
+def test_monthly_rows_end_on_first_of_month_but_totals_do_not(monkeypatch):
+    calls = []
+
+    def fake_query(client, start, end, metrics, **kwargs):
+        calls.append((start, end, kwargs.get("dimensions")))
+        return []
+
+    monkeypatch.setattr(youtube.analytics, "_query", fake_query)
+    c, _ = client(oauth=True)
+    youtube.get_channel_analytics(c, "2026-06-01", "2026-10-31", granularity="month")
+    assert calls == [("2026-06-01", "2026-10-31", None), ("2026-06-01", "2026-10-01", "month")]
