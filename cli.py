@@ -153,6 +153,23 @@ def search(
 
 
 @cli.command()
+@click.argument("channels", nargs=-1, required=True)
+@click.option("--recent", default=20, show_default=True, type=click.IntRange(1, 50), help="Latest uploads to sample per channel.")
+def compare(channels: tuple[str, ...], recent: int) -> None:
+    """Compare channels side by side (IDs or @handles; 'mine' for yours)."""
+    _run(lambda c: youtube.compare_channels(c, list(channels), recent_videos=recent))
+
+
+@cli.command()
+@click.option("--region", default="US", show_default=True, help="ISO country code, e.g. CA.")
+@click.option("--category", default=None, help="Video category ID, e.g. 26 (Howto & Style).")
+@click.option("--limit", "-n", default=25, show_default=True, type=click.IntRange(1, 50))
+def trending(region: str, category: str | None, limit: int) -> None:
+    """YouTube's most-popular videos in a country."""
+    _run(lambda c: youtube.get_trending_videos(c, region_code=region, category_id=category, max_results=limit))
+
+
+@cli.command()
 @click.option("--video", "video_id", default=None, help="Comments on this video ID (default: all of the channel's videos).")
 @channel_option
 @click.option("--order", default="time", show_default=True, type=click.Choice(COMMENT_ORDERS))

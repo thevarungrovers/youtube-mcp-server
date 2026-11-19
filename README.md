@@ -141,6 +141,8 @@ python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]       
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
 python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key
 python cli.py replies THREAD_ID                                                                  # API key
+python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
+python cli.py trending --region CA [--category 26]
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
 ```
@@ -160,6 +162,8 @@ Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
 | `search_videos` | | Keyword search with date, order, region and channel filters |
 | `list_playlists` | | A channel's playlists |
 | `get_playlist_items` | | Videos in a playlist |
+| `compare_channels` | | Benchmark up to 10 channels: subscribers, median views, engagement rate, upload frequency, share of Shorts |
+| `get_trending_videos` | | YouTube's most-popular chart for a country, optionally one category |
 | `get_channel_analytics` | ✓ | Views, watch time, subscribers gained/lost over a date range |
 | `get_video_analytics` | ✓ | Per-video traffic sources, audience retention, demographics |
 | `get_top_videos` | ✓ | Top N videos by a metric over a date range |
@@ -259,6 +263,7 @@ youtube/
   videos.py      video details, bulk stats, search
   playlists.py   playlists, playlist items
   comments.py    comment threads, replies
+  benchmark.py   channel comparison, trending chart
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
 mcp_server/
