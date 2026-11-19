@@ -152,7 +152,7 @@ python cli.py top --metric views --days 30 [-n 10]   # OAuth; metrics: views, wa
 python cli.py revenue --days 28                      # OAuth, monetized channels
 python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]          # OAuth; see --help for all breakdowns
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
-python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key or --with-comments
+python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance (one video only)]   # API key or --with-comments
 python cli.py replies THREAD_ID                                                                  # API key or --with-comments
 python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
 python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found

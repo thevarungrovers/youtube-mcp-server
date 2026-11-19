@@ -223,7 +223,7 @@ def get_trending_videos(
 def list_comments(
     video_id: Annotated[str | None, Field(description="Comments on this video. Omit for comments on all of the channel's videos.")] = None,
     channel: Channel = None,
-    order: Annotated[str, Field(description="time (newest first) or relevance.")] = "time",
+    order: Annotated[str, Field(description="time (newest first) or relevance (relevance only together with video_id).")] = "time",
     search: Annotated[str | None, Field(description="Only threads containing this text.")] = None,
     max_results: Annotated[int, Field(ge=1, le=100, description="Threads per page, 1-100.")] = 50,
     page_token: PageToken = None,

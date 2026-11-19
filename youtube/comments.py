@@ -70,7 +70,7 @@ def list_comments(
             of ``channel``.
         channel: Channel ID, @handle, or None (see :mod:`youtube.channels`).
             Ignored when ``video_id`` is given.
-        order: ``time`` (newest first) or ``relevance``.
+        order: ``time`` (newest first) or ``relevance`` (only with ``video_id``).
         search: Only threads containing this text.
         max_results: Threads per page, 1-100.
         page_token: ``next_page_token`` from a previous call.
@@ -92,6 +92,11 @@ def list_comments(
         "maxResults": max_results,
         "textFormat": "plainText",
     }
+    if order == "relevance" and not (video_id and video_id.strip()):
+        raise InvalidRequestError(
+            "order='relevance' only works for one video (pass video_id); YouTube rejects it for a whole channel. "
+            "Use order='time' for channel-wide comments."
+        )
     owner_id: str | None = None
     if video_id and video_id.strip():
         params["videoId"] = video_id.strip()
