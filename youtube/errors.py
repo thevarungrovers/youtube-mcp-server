@@ -124,7 +124,7 @@ def translate_http_error(exc: HttpError, *, api: str = "YouTube Data API") -> Yo
     status = int(getattr(exc.resp, "status", 0) or 0)
     message, reasons = _error_payload(exc)
     reason_set = set(reasons)
-    detail = f"{api} returned HTTP {status}: {message}"
+    detail = f"{api} returned HTTP {status}: {message.rstrip('. ')}"
 
     if reason_set & _QUOTA_REASONS:
         return QuotaExceededError(
