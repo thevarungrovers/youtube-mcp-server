@@ -144,6 +144,7 @@ python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [-
 python cli.py replies THREAD_ID                                                                  # API key
 python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
 python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found
+python cli.py export [-d channel_daily -d video_daily ...] --days 28 [--format jsonl] [--out-dir exports]   # OAuth
 python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
 python cli.py trending --region CA [--category 26]
 python cli.py playlists [--channel @handle]
@@ -151,6 +152,22 @@ python cli.py playlist PLAYLIST_ID [--stats]
 ```
 
 Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a code and exit with status 1.
+
+### Exporting data
+
+`export` writes flat daily datasets, one file each, named `<dataset>_<start>_<end>.<csv|jsonl>`, ready for a spreadsheet, warehouse or BI tool:
+
+| Dataset | Rows |
+|---------|------|
+| `channel_daily` | Channel totals per day: views, watch time, subscribers, likes, comments, shares |
+| `video_daily` | Per video per day, for every upload |
+| `traffic_daily` | Per day and traffic source |
+| `device_daily` | Per day and device type |
+| `content_type_daily` | Per day, Shorts vs long-form |
+| `subscribed_daily` | Per day, subscribers vs not |
+| `videos` | Every upload with its current views, likes and comments (a snapshot) |
+
+Run it daily for the last few days and upsert on `day` (+ the breakdown column): recent days keep changing until analytics settles.
 
 ### Scheduled reports
 
@@ -281,6 +298,7 @@ youtube/
   comments.py    comment threads, replies
   benchmark.py   channel comparison, trending chart
   reports.py     period reports, Markdown rendering, anomaly alerts, webhook
+  export.py      daily datasets as CSV / JSON Lines
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
 mcp_server/

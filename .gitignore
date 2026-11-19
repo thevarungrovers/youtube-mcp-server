@@ -24,3 +24,6 @@ venv/
 
 # Local planning notes
 .claude/plans/
+
+# CLI export output
+exports/
