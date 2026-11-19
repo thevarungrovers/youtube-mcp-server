@@ -86,3 +86,9 @@ def test_comments_with_comments_scope_use_oauth_not_the_key():
     creds = Credentials(token="t", scopes=SCOPES + [SCOPE_FORCE_SSL])
     c = YouTubeClient(auth=AuthContext(AuthMode.OAUTH, credentials=creds, api_key="k"), http=HttpMockSequence([]))
     assert c.comments is c.data
+
+
+def test_relevance_needs_a_video():
+    c, _ = client()
+    with pytest.raises(InvalidRequestError, match="only works for one video"):
+        youtube.list_comments(c, channel=CHANNEL_ID, order="relevance")
