@@ -6,7 +6,7 @@ A read-only Python toolkit for the **YouTube Data API v3** and **YouTube Analyti
 - **`mcp_server/`** — a [Model Context Protocol](https://modelcontextprotocol.io) server so AI agents (Claude Desktop, Claude Code, …) can call it as tools
 - **`cli.py`** — a command-line interface for manual testing
 
-Everything is **read-only**: nothing here can upload, edit, or delete.
+Everything is **read-only**: nothing here can upload, edit, or delete. (The one exception is `cli.py reporting create-job`, which schedules Google-generated reports and does not touch the channel.)
 
 ## How authentication works
 
@@ -46,7 +46,7 @@ pip install -e ".[dev]"
 In the [Google Cloud console](https://console.cloud.google.com/):
 
 1. Create a project, or select an existing one.
-2. **APIs & Services → Library**: enable **YouTube Data API v3** and **YouTube Analytics API**.
+2. **APIs & Services → Library**: enable **YouTube Data API v3** and **YouTube Analytics API** (and **YouTube Reporting API** if you want bulk reports).
 
 ### 3. Configure the OAuth consent screen
 
@@ -168,6 +168,19 @@ Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a c
 | `videos` | Every upload with its current views, likes and comments (a snapshot) |
 
 Run it daily for the last few days and upsert on `day` (+ the breakdown column): recent days keep changing until analytics settles.
+
+### Bulk reports (YouTube Reporting API)
+
+For long history, or data the Analytics API doesn't offer (such as thumbnail **impressions and click-through rate**, in `channel_reach_basic_a1`), schedule a Reporting API job. Google then writes one CSV per day and keeps each for 60 days. Enable **YouTube Reporting API** in the Cloud project first.
+
+```bash
+python cli.py reporting types                                # what's available
+python cli.py reporting create-job channel_reach_basic_a1    # once per type; first reports in ~48h
+python cli.py reporting jobs
+python cli.py reporting download JOB_ID --latest 7           # -> exports/reporting/<job>_<day>.csv
+```
+
+Creating a job is the only call in this project that changes anything: it schedules report generation for the channel and never touches videos or the channel itself. It is CLI-only, not an MCP tool.
 
 ### Scheduled reports
 
@@ -299,6 +312,7 @@ youtube/
   benchmark.py   channel comparison, trending chart
   reports.py     period reports, Markdown rendering, anomaly alerts, webhook
   export.py      daily datasets as CSV / JSON Lines
+  reporting.py   YouTube Reporting API: report types, jobs, CSV downloads
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
 mcp_server/
