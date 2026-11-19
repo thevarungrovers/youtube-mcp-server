@@ -40,7 +40,7 @@ upload, edit, or delete.
 
 Start with auth_status if unsure what works: an API key supports public data
 only; analytics tools (get_channel_analytics, get_video_analytics,
-get_top_videos, get_revenue) need OAuth, set up by the user running
+get_top_videos, get_revenue, get_audience_insights, get_search_terms) need OAuth, set up by the user running
 `python cli.py auth`.
 
 Channels are given as a channel ID (UC...) or a handle (@name). Leave the
@@ -259,6 +259,50 @@ def get_revenue(
     """
     start, end = _dates(start_date, end_date, days)
     return youtube.get_revenue(client, start, end, granularity=granularity, currency=currency)
+
+
+@mcp.tool(title="Get audience insights (OAuth)", annotations=READ_ONLY)
+@errors_reach_the_caller
+def get_audience_insights(
+    breakdowns: Annotated[
+        list[str] | None,
+        Field(
+            description="Subset of: "
+            + ", ".join(f"{k} ({v.description})" for k, v in youtube.insights.BREAKDOWNS.items())
+            + ". Omit for: " + ", ".join(youtube.insights.DEFAULT_BREAKDOWNS) + "."
+        ),
+    ] = None,
+    video_id: Annotated[str | None, Field(description="Narrow every breakdown to one video on your channel.")] = None,
+    limit: Annotated[int, Field(ge=1, le=250, description="Rows per breakdown, 1-250 (embedding/external sites stop at 25).")] = 10,
+    start_date: StartDate = None,
+    end_date: EndDate = None,
+    days: Days = 28,
+) -> dict[str, Any]:
+    """Who watches and how: countries, cities, devices, playback locations (incl. embeds on websites), traffic sources, subscribers vs not, Shorts vs long-form, sharing, cards.
+
+    Each breakdown lists rows sorted by views with their share of the total. Requires OAuth.
+    """
+    start, end = _dates(start_date, end_date, days)
+    return youtube.get_audience_insights(
+        client, start, end, breakdowns=breakdowns or youtube.insights.DEFAULT_BREAKDOWNS, video_id=video_id, limit=limit
+    )
+
+
+@mcp.tool(title="Get YouTube search terms (OAuth)", annotations=READ_ONLY)
+@errors_reach_the_caller
+def get_search_terms(
+    video_id: Annotated[str | None, Field(description="Only searches that led to this video. Omit for the whole channel.")] = None,
+    limit: Annotated[int, Field(ge=1, le=25, description="How many terms, 1-25 (the API's maximum).")] = 25,
+    start_date: StartDate = None,
+    end_date: EndDate = None,
+    days: Days = 28,
+) -> dict[str, Any]:
+    """The YouTube search terms viewers typed before watching your videos, with views and watch time per term.
+
+    Useful for titles, descriptions and tags. Requires OAuth.
+    """
+    start, end = _dates(start_date, end_date, days)
+    return youtube.get_search_terms(client, start, end, video_id=video_id, limit=limit)
 
 
 @mcp.tool(title="List a channel's playlists", annotations=READ_ONLY)

@@ -137,6 +137,8 @@ python cli.py analytics --start 2025-01-01 --end 2025-01-31 [--granularity day] 
 python cli.py video-analytics VIDEO_ID --days 28 [--section retention]            # OAuth
 python cli.py top --metric views --days 30 [-n 10]   # OAuth; metrics: views, watch_time, likes, comments, shares, subscribers, engagement
 python cli.py revenue --days 28                      # OAuth, monetized channels
+python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]          # OAuth; see --help for all breakdowns
+python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
 ```
@@ -160,6 +162,8 @@ Output is JSON. Errors go to stderr prefixed with a code and exit with status 1.
 | `get_video_analytics` | ✓ | Per-video traffic sources, audience retention, demographics |
 | `get_top_videos` | ✓ | Top N videos by a metric over a date range |
 | `get_revenue` | ✓ | Estimated revenue and CPM (monetized channels only) |
+| `get_audience_insights` | ✓ | Countries, cities, devices, playback locations and embedding sites, traffic sources and referring sites, subscribers vs not, Shorts vs long-form, sharing, cards |
+| `get_search_terms` | ✓ | The YouTube search terms that led viewers to your videos |
 
 Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 
@@ -249,6 +253,7 @@ youtube/
   videos.py      video details, bulk stats, search
   playlists.py   playlists, playlist items
   analytics.py   channel/video analytics, top videos, revenue
+  insights.py    audience breakdowns, search terms
 mcp_server/
   server.py      MCP tools
 cli.py           click CLI
