@@ -68,8 +68,9 @@ Publish it, because in *Testing* the login expires every 7 days (an AI agent can
 ### 5. Sign in
 
 ```bash
-python cli.py auth                # opens a browser
-python cli.py auth --no-browser   # prints the URL instead
+python cli.py auth                  # opens a browser
+python cli.py auth --no-browser     # prints the URL instead
+python cli.py auth --with-comments  # also allow reading comments over OAuth (see Comments)
 ```
 
 1. Sign in with the Google account that owns or manages the channel.
@@ -86,9 +87,9 @@ The token is saved to `token.json`. "My channel" means the channel you picked, e
 
 Analytics needs a role on the channel that can view analytics (Manager or Owner). Revenue also needs a monetized channel.
 
-### 6. API key (needed for comments)
+### 6. API key (optional)
 
-Needed to read comments, and for public data without OAuth (e.g. as a fallback).
+For reading comments with a strictly read-only login (see [Comments](#comments)), and for public data without OAuth (e.g. as a fallback).
 
 1. **APIs & Services → Credentials → Create credentials → API key**.
 2. **Edit API key → API restrictions → Restrict key** → tick only **YouTube Data API v3** → **Save**.
@@ -111,7 +112,18 @@ With only an API key there is no "my channel": pass `--channel UC...` / `@handle
 | "Google hasn't verified this app" | Normal. Click **Advanced → Go to (app name)**. |
 | "could not be refreshed" | The login expired or was revoked. Run `python cli.py auth`. If it happens every 7 days, the app is still in *Testing*: publish it. |
 
-**Scopes requested** (all read-only): `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly`.
+**Scopes requested** (all read-only): `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly`. With `--with-comments`, also `youtube.force-ssl` (see [Comments](#comments)).
+
+### Comments
+
+Google won't let a read-only login read comments: over OAuth it requires `youtube.force-ssl`, a scope that can also edit and delete. Choose one:
+
+| Option | How | Trade-off |
+|--------|-----|-----------|
+| **API key** (default) | Set `YOUTUBE_API_KEY` (step 6) | The OAuth token stays strictly read-only. Held-for-review comments are not visible. |
+| **OAuth with comments** | Delete `token.json`, run `python cli.py auth --with-comments` | No API key needed, but the saved token *could* edit and delete on the channel. This tool never does. |
+
+If the token has the comments scope, comments go through OAuth; otherwise through the API key.
 
 ### Optional settings (`.env`)
 
@@ -140,8 +152,8 @@ python cli.py top --metric views --days 30 [-n 10]   # OAuth; metrics: views, wa
 python cli.py revenue --days 28                      # OAuth, monetized channels
 python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]          # OAuth; see --help for all breakdowns
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
-python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key
-python cli.py replies THREAD_ID                                                                  # API key
+python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance]   # API key or --with-comments
+python cli.py replies THREAD_ID                                                                  # API key or --with-comments
 python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
 python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found
 python cli.py export [-d channel_daily -d video_daily ...] --days 28 [--format jsonl] [--out-dir exports]   # OAuth
@@ -216,10 +228,10 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 | `get_revenue` | ✓ | Estimated revenue and CPM (monetized channels only) |
 | `get_audience_insights` | ✓ | Countries, cities, devices, playback locations and embedding sites, traffic sources and referring sites, subscribers vs not, Shorts vs long-form, sharing, cards |
 | `get_search_terms` | ✓ | The YouTube search terms that led viewers to your videos |
-| `list_comments` | key | Public comment threads on a video or a whole channel, with whether the channel replied |
-| `get_comment_replies` | key | All replies to one comment thread |
+| `list_comments` | key* | Public comment threads on a video or a whole channel, with whether the channel replied |
+| `get_comment_replies` | key* | All replies to one comment thread |
 
-✓ = OAuth. *key* = `YOUTUBE_API_KEY`, even when OAuth is set up: Google refuses comment reads under the read-only OAuth scopes (it wants `youtube.force-ssl`, which can also post and delete), so comments go through the key.
+✓ = OAuth. key* = `YOUTUBE_API_KEY`, or an OAuth login made with `--with-comments` (see [Comments](#comments)).
 
 Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 

@@ -122,3 +122,35 @@ def test_auth_status_oauth_without_key_marks_comments_unsupported(isolated_crede
     assert status["credentials_available"] == "oauth"
     assert set(status["unsupported_operations"]) == {"list_comments", "get_comment_replies"}
     assert any("comments" in step for step in status["next_steps"])
+
+
+def test_auth_status_token_with_comments_scope_supports_comments(isolated_credentials):
+    import youtube  # noqa: F401  (registers every operation)
+    from youtube.auth import SCOPE_FORCE_SSL
+
+    write_token(isolated_credentials / "token.json", scopes=SCOPES + [SCOPE_FORCE_SSL])
+    status = auth.auth_status()
+    assert status["unsupported_operations"] == []
+    assert not any("comments" in step for step in status["next_steps"])
+
+
+@pytest.mark.parametrize("with_comments", [False, True])
+def test_oauth_flow_asks_for_comments_scope_only_on_request(isolated_credentials, monkeypatch, with_comments):
+    from youtube.auth import SCOPE_FORCE_SSL
+
+    (isolated_credentials / "client_secret.json").write_text("{}")
+    asked = {}
+
+    class FakeFlow:
+        def run_local_server(self, **kwargs):
+            return Credentials(token="t", refresh_token="r", client_id="c", client_secret="s",
+                               token_uri="https://oauth2.googleapis.com/token", scopes=asked["scopes"])
+
+    def from_client_secrets_file(path, scopes):
+        asked["scopes"] = scopes
+        return FakeFlow()
+
+    monkeypatch.setattr(auth.InstalledAppFlow, "from_client_secrets_file", staticmethod(from_client_secrets_file))
+    auth.run_oauth_flow(open_browser=False, with_comments=with_comments)
+    assert (SCOPE_FORCE_SSL in asked["scopes"]) is with_comments
+    assert set(SCOPES) <= set(asked["scopes"])
