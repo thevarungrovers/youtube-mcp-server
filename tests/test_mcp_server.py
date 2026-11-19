@@ -16,6 +16,8 @@ EXPECTED_TOOLS = {
     "get_revenue",
     "list_playlists",
     "get_playlist_items",
+    "get_audience_insights",
+    "get_search_terms",
 }
 
 
@@ -37,7 +39,7 @@ def _call(name, args):
     return anyio.run(go)
 
 
-@pytest.mark.parametrize("tool", ["get_channel_analytics", "get_top_videos", "get_revenue"])
+@pytest.mark.parametrize("tool", ["get_channel_analytics", "get_top_videos", "get_revenue", "get_audience_insights", "get_search_terms"])
 def test_oauth_tools_explain_how_to_enable(tool, monkeypatch):
     monkeypatch.setenv("YOUTUBE_API_KEY", "abc")
     from mcp_server import server

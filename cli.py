@@ -27,6 +27,7 @@ import click
 import youtube
 from youtube import YouTubeClient, YouTubeError
 from youtube.analytics import GRANULARITIES, TOP_METRICS, VIDEO_SECTIONS
+from youtube.insights import BREAKDOWNS, DEFAULT_BREAKDOWNS, MAX_SEARCH_TERMS
 from youtube.videos import SEARCH_ORDERS
 
 channel_option = click.option(
@@ -195,6 +196,34 @@ def revenue(start: str | None, end: str | None, days: int, granularity: str, cur
     """Estimated revenue, if the channel is monetized (OAuth)."""
     start, end = _range(start, end, days)
     _run(lambda c: youtube.get_revenue(c, start, end, granularity=granularity, currency=currency))
+
+
+@cli.command()
+@click.option("--breakdown", "-b", "breakdowns", multiple=True, type=click.Choice(list(BREAKDOWNS)),
+              help=f"Repeatable. Default: {', '.join(DEFAULT_BREAKDOWNS)}.")
+@click.option("--video", "video_id", default=None, help="Narrow to one video ID.")
+@click.option("--limit", "-n", default=10, show_default=True, type=click.IntRange(1, 250), help="Rows per breakdown.")
+@click.option("--start", default=None, help="Start date YYYY-MM-DD.")
+@click.option("--end", default=None, help="End date YYYY-MM-DD.")
+@click.option("--days", default=28, show_default=True, type=click.IntRange(min=1))
+def insights(breakdowns: tuple[str, ...], video_id: str | None, limit: int, start: str | None, end: str | None, days: int) -> None:
+    """Audience breakdowns: geography, devices, playback, traffic, subscribers, formats (OAuth)."""
+    start, end = _range(start, end, days)
+    _run(lambda c: youtube.get_audience_insights(
+        c, start, end, breakdowns=breakdowns or DEFAULT_BREAKDOWNS, video_id=video_id, limit=limit
+    ))
+
+
+@cli.command("search-terms")
+@click.option("--video", "video_id", default=None, help="Narrow to one video ID.")
+@click.option("--limit", "-n", default=MAX_SEARCH_TERMS, show_default=True, type=click.IntRange(1, MAX_SEARCH_TERMS))
+@click.option("--start", default=None, help="Start date YYYY-MM-DD.")
+@click.option("--end", default=None, help="End date YYYY-MM-DD.")
+@click.option("--days", default=28, show_default=True, type=click.IntRange(min=1))
+def search_terms(video_id: str | None, limit: int, start: str | None, end: str | None, days: int) -> None:
+    """YouTube search terms that led viewers to your videos (OAuth)."""
+    start, end = _range(start, end, days)
+    _run(lambda c: youtube.get_search_terms(c, start, end, video_id=video_id, limit=limit))
 
 
 @cli.command()

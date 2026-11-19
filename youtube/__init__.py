@@ -41,6 +41,7 @@ from youtube.errors import (
     QuotaExceededError,
     YouTubeError,
 )
+from youtube.insights import get_audience_insights, get_search_terms
 from youtube.operations import OPERATIONS
 from youtube.playlists import get_playlist_details, get_playlist_items, list_playlists
 from youtube.videos import get_video_details, get_video_statistics, search_videos
@@ -60,11 +61,13 @@ __all__ = [
     "YouTubeError",
     "auth_status",
     "get_analytics_service",
+    "get_audience_insights",
     "get_channel_analytics",
     "get_channel_info",
     "get_playlist_details",
     "get_playlist_items",
     "get_revenue",
+    "get_search_terms",
     "get_top_videos",
     "get_video_analytics",
     "get_video_details",
