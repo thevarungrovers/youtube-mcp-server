@@ -29,6 +29,7 @@ import youtube
 from youtube import YouTubeClient, YouTubeError
 from youtube.analytics import GRANULARITIES, TOP_METRICS, VIDEO_SECTIONS
 from youtube.comments import COMMENT_ORDERS
+from youtube.export import DATASETS, FORMATS, export_dataset, write_rows
 from youtube.insights import BREAKDOWNS, DEFAULT_BREAKDOWNS, MAX_SEARCH_TERMS
 from youtube.reports import PERIODS, post_webhook
 from youtube.videos import SEARCH_ORDERS
@@ -213,6 +214,31 @@ def alerts(days: int, baseline_days: int, threshold: float, webhook: str | None)
             click.secho("Posted to webhook", fg="green", err=True)
     except YouTubeError as exc:
         click.secho(f"{exc.code}: {exc}", fg="red", err=True)
+        sys.exit(1)
+
+
+@cli.command()
+@click.option("--dataset", "-d", "datasets", multiple=True, type=click.Choice(list(DATASETS)), help="Repeatable. Default: all.")
+@click.option("--start", default=None, help="Start date YYYY-MM-DD.")
+@click.option("--end", default=None, help="End date YYYY-MM-DD.")
+@click.option("--days", default=28, show_default=True, type=click.IntRange(min=1), help="Used when no dates given.")
+@click.option("--format", "fmt", default="csv", show_default=True, type=click.Choice(FORMATS))
+@click.option("--out-dir", default="exports", show_default=True, help="Directory for the files.")
+def export(datasets: tuple[str, ...], start: str | None, end: str | None, days: int, fmt: str, out_dir: str) -> None:
+    """Write daily datasets as CSV or JSON Lines, named <dataset>_<start>_<end>.<format>."""
+    start, end = _range(start, end, days)
+    client = YouTubeClient(interactive=True)
+    failed = False
+    for name in datasets or DATASETS:
+        try:
+            rows = export_dataset(client, name, start, end)
+        except YouTubeError as exc:
+            click.secho(f"{name}: {exc.code}: {exc}", fg="red", err=True)
+            failed = True
+            continue
+        path = write_rows(rows, f"{out_dir}/{name}_{start}_{end}.{fmt}", fmt)
+        click.echo(f"{name}: {len(rows)} rows -> {path}")
+    if failed:
         sys.exit(1)
 
 
