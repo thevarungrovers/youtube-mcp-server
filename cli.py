@@ -53,6 +53,11 @@ def _run(fn: Callable[[YouTubeClient], Any]) -> None:
         sys.exit(1)
 
 
+def _can_prompt() -> bool:
+    """True when a person is at the terminal to answer a question (not cron, not a pipe)."""
+    return sys.stdin.isatty()
+
+
 def _range(start: str | None, end: str | None, days: int) -> tuple[str, str]:
     if start or end:
         if not (start and end):
@@ -69,17 +74,37 @@ def cli() -> None:
 @cli.command()
 @click.option("--no-browser", is_flag=True, help="Print the consent URL instead of opening a browser.")
 @click.option(
-    "--with-comments", is_flag=True,
-    help="Also grant the scope Google requires to read comments over OAuth. It can also edit and delete; "
-    "this tool never does. Without it, comments use YOUTUBE_API_KEY.",
+    "--with-comments/--read-only", default=None,
+    help="Grant (or skip) the scope Google requires to read comments over OAuth; it can also edit and delete, "
+    "and this tool never does. Default: read-only if YOUTUBE_API_KEY is set (comments use the key), "
+    "otherwise ask.",
 )
-def auth(no_browser: bool, with_comments: bool) -> None:
-    """Run the OAuth flow and save token.json."""
+def auth(no_browser: bool, with_comments: bool | None) -> None:
+    """Run the OAuth flow and save token.json. Checks for YOUTUBE_API_KEY to decide how comments are read."""
+    has_key = youtube.auth.api_key() is not None
+    if with_comments is None:
+        if has_key:
+            click.echo("YOUTUBE_API_KEY found: signing in read-only; comments will use the key.")
+            with_comments = False
+        else:
+            click.echo(
+                "No YOUTUBE_API_KEY in .env, so comments can't be read with a read-only login.\n"
+                "Google only allows reading comments over OAuth with a scope that can also edit and delete\n"
+                "(this tool never does). Alternatively, add an API key to .env and run this again."
+            )
+            with_comments = _can_prompt() and click.confirm("Grant comment access to this login?", default=False)
     try:
         youtube.run_oauth_flow(open_browser=not no_browser, with_comments=with_comments)
         click.secho(f"Saved OAuth token to {youtube.auth.token_file()}", fg="green")
-        info = youtube.get_channel_info(YouTubeClient(interactive=False))
+        client = YouTubeClient(interactive=False)
+        info = youtube.get_channel_info(client)
         click.echo(f"Authenticated as channel: {info['title']} ({info['id']})")
+        if client.auth.oauth_reads_comments:
+            click.echo("Comments: read with this login.")
+        elif has_key:
+            click.echo("Comments: read with YOUTUBE_API_KEY.")
+        else:
+            click.secho("Comments: unavailable (no API key, comment access not granted).", fg="yellow")
     except YouTubeError as exc:
         click.secho(f"{exc.code}: {exc}", fg="red", err=True)
         sys.exit(1)

@@ -71,6 +71,7 @@ Publish it, because in *Testing* the login expires every 7 days (an AI agent can
 python cli.py auth                  # opens a browser
 python cli.py auth --no-browser     # prints the URL instead
 python cli.py auth --with-comments  # also allow reading comments over OAuth (see Comments)
+python cli.py auth --read-only      # never ask; comments need YOUTUBE_API_KEY
 ```
 
 1. Sign in with the Google account that owns or manages the channel.
@@ -123,7 +124,7 @@ Google won't let a read-only login read comments: over OAuth it requires `youtub
 | **API key** (default) | Set `YOUTUBE_API_KEY` (step 6) | The OAuth token stays strictly read-only. Held-for-review comments are not visible. |
 | **OAuth with comments** | Delete `token.json`, run `python cli.py auth --with-comments` | No API key needed, but the saved token *could* edit and delete on the channel. This tool never does. |
 
-If the token has the comments scope, comments go through OAuth; otherwise through the API key.
+`python cli.py auth` checks for the key: with `YOUTUBE_API_KEY` set it signs in read-only, and without one it asks whether to grant comment access (default no). `--with-comments` / `--read-only` skip the question. If the token has the comments scope, comments go through OAuth; otherwise through the API key.
 
 ### Optional settings (`.env`)
 
