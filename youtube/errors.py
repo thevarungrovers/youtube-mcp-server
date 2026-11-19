@@ -147,6 +147,8 @@ def translate_http_error(exc: HttpError, *, api: str = "YouTube Data API") -> Yo
             f"{detail}. Enable the {api} for your Google Cloud project "
             "(APIs & Services > Library), then retry."
         )
+    if "commentsDisabled" in reason_set:
+        return InvalidRequestError(f"{detail}. Comments are turned off for this video.")
     if status == 401:
         return AuthError(f"{detail}. The OAuth token was rejected. {AUTH_HINT}")
     if status == 403:

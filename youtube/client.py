@@ -20,7 +20,7 @@ from googleapiclient.discovery import Resource
 from googleapiclient.errors import HttpError
 
 from youtube import auth as auth_module
-from youtube.auth import AuthContext, build_service
+from youtube.auth import AuthContext, AuthMode, build_service
 from youtube.errors import AUTH_HINT, APIError, AuthError, oauth_required, translate_http_error
 
 
@@ -49,6 +49,7 @@ class YouTubeClient:
         self._token_mtime: float | None = self._current_token_mtime()
         self._data: Resource | None = None
         self._analytics: Resource | None = None
+        self._public: Resource | None = None
         # httplib2 connections are not thread-safe, and MCP runs sync tools on
         # worker threads, so requests are serialised.
         self._lock = threading.RLock()
@@ -65,6 +66,7 @@ class YouTubeClient:
                 self._auth = None
             self._data = None
             self._analytics = None
+            self._public = None
             self._token_mtime = self._current_token_mtime()
 
     @property
@@ -97,6 +99,32 @@ class YouTubeClient:
             if self._analytics is None:
                 self._analytics = build_service(auth, "youtubeAnalytics", "v2", http=self._http)
             return self._analytics
+
+    @property
+    def public_data(self) -> Resource:
+        """A YouTube Data API v3 service authorised by the API key alone.
+
+        Some public reads (comments) are refused under the read-only OAuth
+        scopes -- Google wants ``youtube.force-ssl``, which can also write --
+        so they go through the key instead.
+
+        Raises:
+            AuthError: OAuth is active but no YOUTUBE_API_KEY is set.
+        """
+        auth = self.auth
+        if not auth.has_oauth:
+            return self.data
+        if not auth.api_key:
+            raise AuthError(
+                "Reading comments needs YOUTUBE_API_KEY in .env: Google refuses it under the read-only "
+                "OAuth scopes this tool uses. Create a key restricted to the YouTube Data API v3 "
+                "(see the README, 'API key') and add it to .env."
+            )
+        with self._lock:
+            if self._public is None:
+                key_only = AuthContext(AuthMode.API_KEY, api_key=auth.api_key)
+                self._public = build_service(key_only, "youtube", "v3", http=self._http)
+            return self._public
 
     def execute(self, request: Any, *, api: str = "YouTube Data API") -> dict[str, Any]:
         """Execute a ``googleapiclient`` request, translating failures.

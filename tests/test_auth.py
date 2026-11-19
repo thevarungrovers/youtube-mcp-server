@@ -112,3 +112,13 @@ def test_auth_status_both(isolated_credentials, monkeypatch):
     status = auth.auth_status()
     assert status["credentials_available"] == "both"
     assert status["unsupported_operations"] == []
+
+
+def test_auth_status_oauth_without_key_marks_comments_unsupported(isolated_credentials):
+    import youtube  # noqa: F401  (registers every operation)
+
+    write_token(isolated_credentials / "token.json")
+    status = auth.auth_status()
+    assert status["credentials_available"] == "oauth"
+    assert set(status["unsupported_operations"]) == {"list_comments", "get_comment_replies"}
+    assert any("comments" in step for step in status["next_steps"])

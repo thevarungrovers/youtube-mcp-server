@@ -29,17 +29,23 @@ class Operation:
     name: str
     requires_oauth: bool
     summary: str
+    requires_api_key: bool = False
 
 
 OPERATIONS: dict[str, Operation] = {}
 
 
-def operation(*, requires_oauth: bool = False) -> Callable[[F], F]:
-    """Register a public operation; enforce OAuth for it when ``requires_oauth``."""
+def operation(*, requires_oauth: bool = False, requires_api_key: bool = False) -> Callable[[F], F]:
+    """Register a public operation; enforce OAuth for it when ``requires_oauth``.
+
+    ``requires_api_key`` marks operations that Google refuses under the read-only
+    OAuth scopes and that therefore always go through the API key (see
+    :attr:`YouTubeClient.public_data`).
+    """
 
     def decorator(fn: F) -> F:
         summary = (fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else ""
-        OPERATIONS[fn.__name__] = Operation(fn.__name__, requires_oauth, summary)
+        OPERATIONS[fn.__name__] = Operation(fn.__name__, requires_oauth, summary, requires_api_key)
         if not requires_oauth:
             return fn
 

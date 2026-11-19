@@ -27,6 +27,7 @@ import click
 import youtube
 from youtube import YouTubeClient, YouTubeError
 from youtube.analytics import GRANULARITIES, TOP_METRICS, VIDEO_SECTIONS
+from youtube.comments import COMMENT_ORDERS
 from youtube.insights import BREAKDOWNS, DEFAULT_BREAKDOWNS, MAX_SEARCH_TERMS
 from youtube.videos import SEARCH_ORDERS
 
@@ -149,6 +150,30 @@ def search(
             channel_id=channel_id,
         )
     )
+
+
+@cli.command()
+@click.option("--video", "video_id", default=None, help="Comments on this video ID (default: all of the channel's videos).")
+@channel_option
+@click.option("--order", default="time", show_default=True, type=click.Choice(COMMENT_ORDERS))
+@click.option("--search", default=None, help="Only threads containing this text.")
+@click.option("--limit", "-n", default=20, show_default=True, type=click.IntRange(1, 100))
+@click.option("--page-token", default=None, help="next_page_token from a previous run.")
+def comments(
+    video_id: str | None, channel: str | None, order: str, search: str | None, limit: int, page_token: str | None
+) -> None:
+    """List public comment threads on a video or a channel."""
+    _run(lambda c: youtube.list_comments(
+        c, video_id=video_id, channel=channel, order=order, search=search, max_results=limit, page_token=page_token
+    ))
+
+
+@cli.command()
+@click.argument("comment_id")
+@click.option("--limit", "-n", default=50, show_default=True, type=click.IntRange(1, 100))
+def replies(comment_id: str, limit: int) -> None:
+    """List all replies to a comment thread."""
+    _run(lambda c: youtube.get_comment_replies(c, comment_id, max_results=limit))
 
 
 @cli.command()
