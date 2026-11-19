@@ -20,6 +20,8 @@ EXPECTED_TOOLS = {
     "get_search_terms",
     "list_comments",
     "get_comment_replies",
+    "compare_channels",
+    "get_trending_videos",
 }
 
 

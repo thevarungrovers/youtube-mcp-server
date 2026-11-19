@@ -186,6 +186,38 @@ def search_videos(
     )
 
 
+@mcp.tool(title="Compare channels", annotations=READ_ONLY)
+@errors_reach_the_caller
+def compare_channels(
+    channels: Annotated[
+        list[str], Field(description="1-10 channel IDs (UC...) or @handles; 'mine' for your own channel (OAuth).")
+    ],
+    recent_videos: Annotated[int, Field(ge=1, le=50, description="Latest uploads to sample per channel, 1-50.")] = 20,
+) -> dict[str, Any]:
+    """Benchmark channels side by side: subscribers, total views, and over their recent uploads the median views, engagement rate, upload frequency, share of Shorts and top video.
+
+    Public data; about 3 quota units per channel. Good for competitor tracking.
+    """
+    return youtube.compare_channels(client, channels, recent_videos=recent_videos)
+
+
+@mcp.tool(title="Get trending videos", annotations=READ_ONLY)
+@errors_reach_the_caller
+def get_trending_videos(
+    region_code: Annotated[str, Field(description="ISO 3166-1 alpha-2 country code, e.g. CA.")] = "US",
+    category_id: Annotated[
+        str | None,
+        Field(description="Video category ID, e.g. 26 Howto & Style, 22 People & Blogs, 19 Travel & Events. Omit for all."),
+    ] = None,
+    max_results: MaxResults = 25,
+    page_token: PageToken = None,
+) -> dict[str, Any]:
+    """YouTube's most-popular videos in a country right now, optionally in one category, with stats. 1 quota unit."""
+    return youtube.get_trending_videos(
+        client, region_code=region_code, category_id=category_id, max_results=max_results, page_token=page_token
+    )
+
+
 @mcp.tool(title="List comments", annotations=READ_ONLY)
 @errors_reach_the_caller
 def list_comments(

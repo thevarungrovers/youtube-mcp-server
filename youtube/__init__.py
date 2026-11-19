@@ -29,6 +29,7 @@ from youtube.auth import (
     resolve_auth,
     run_oauth_flow,
 )
+from youtube.benchmark import compare_channels, get_trending_videos
 from youtube.channels import get_channel_info, list_channel_videos
 from youtube.client import YouTubeClient
 from youtube.comments import get_comment_replies, list_comments
@@ -61,6 +62,7 @@ __all__ = [
     "YouTubeClient",
     "YouTubeError",
     "auth_status",
+    "compare_channels",
     "get_analytics_service",
     "get_audience_insights",
     "get_channel_analytics",
@@ -71,6 +73,7 @@ __all__ = [
     "get_revenue",
     "get_search_terms",
     "get_top_videos",
+    "get_trending_videos",
     "get_video_analytics",
     "get_video_details",
     "get_video_statistics",
