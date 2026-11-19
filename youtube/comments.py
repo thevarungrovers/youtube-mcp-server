@@ -1,10 +1,9 @@
 """Comment operations.
 
 Google refuses comment reads under the read-only OAuth scopes: it wants
-``youtube.force-ssl``, which can also post and delete. So comments are read
-with OAuth only if that scope was granted on purpose (``cli.py auth
---with-comments``), and otherwise with ``YOUTUBE_API_KEY``. Either way this
-package only reads. Comments held for review are not returned.
+``youtube.force-ssl``, which can also post and delete. ``cli.py auth`` grants
+it unless ``--read-only``. Comments are read with OAuth first, falling back to
+``YOUTUBE_API_KEY``. Either way this package only reads.
 """
 
 from __future__ import annotations
@@ -107,7 +106,7 @@ def list_comments(
         params["searchTerms"] = search
     if page_token:
         params["pageToken"] = page_token
-    response = client.execute(client.comments.commentThreads().list(**params))
+    response = client.execute_comments(lambda service: service.commentThreads().list(**params))
     return {
         "comments": [_format_thread(item, owner_id) for item in response.get("items", [])],
         "next_page_token": response.get("nextPageToken"),
@@ -143,7 +142,7 @@ def get_comment_replies(
     }
     if page_token:
         params["pageToken"] = page_token
-    response = client.execute(client.comments.comments().list(**params))
+    response = client.execute_comments(lambda service: service.comments().list(**params))
     return {
         "comment_id": comment_id.strip(),
         "replies": [_format_comment(item) for item in response.get("items", [])],

@@ -6,7 +6,7 @@ A read-only Python toolkit for the **YouTube Data API v3** and **YouTube Analyti
 - **`mcp_server/`** — a [Model Context Protocol](https://modelcontextprotocol.io) server so AI agents (Claude Desktop, Claude Code, …) can call it as tools
 - **`cli.py`** — a command-line interface for manual testing
 
-Everything is **read-only**: nothing here can upload, edit, or delete. (The one exception is `cli.py reporting create-job`, which schedules Google-generated reports and does not touch the channel.)
+Everything is **read-only**: nothing here uploads, edits, or deletes. (The one exception is `cli.py reporting create-job`, which schedules Google-generated reports and does not touch the channel. Note that the default login includes a comments scope Google ties to write access; see [Comments](#comments).)
 
 ## How authentication works
 
@@ -68,16 +68,15 @@ Publish it, because in *Testing* the login expires every 7 days (an AI agent can
 ### 5. Sign in
 
 ```bash
-python cli.py auth                  # opens a browser
-python cli.py auth --no-browser     # prints the URL instead
-python cli.py auth --with-comments  # also allow reading comments over OAuth (see Comments)
-python cli.py auth --read-only      # never ask; comments need YOUTUBE_API_KEY
+python cli.py auth                # opens a browser
+python cli.py auth --no-browser   # prints the URL instead
+python cli.py auth --read-only    # without comment access (see Comments)
 ```
 
 1. Sign in with the Google account that owns or manages the channel.
 2. If Google says **"Google hasn't verified this app"**, click **Advanced → Go to (app name)**.
 3. **Choose the account:** Google may list your personal profile *and* the channels you manage (Brand Account channels are labelled *YouTube*). **Use the account that you want to connect.**
-4. Accept the read-only permissions.
+4. Accept the permissions (read-only, plus comment access unless `--read-only`; see [Comments](#comments)).
 5. The command prints the connected channel. Confirm it is the right one, then run:
 
 ```bash
@@ -90,7 +89,7 @@ Analytics needs a role on the channel that can view analytics (Manager or Owner)
 
 ### 6. API key (optional)
 
-For reading comments with a strictly read-only login (see [Comments](#comments)), and for public data without OAuth (e.g. as a fallback).
+A fallback for comments (see [Comments](#comments)), and for public data without OAuth.
 
 1. **APIs & Services → Credentials → Create credentials → API key**.
 2. **Edit API key → API restrictions → Restrict key** → tick only **YouTube Data API v3** → **Save**.
@@ -113,18 +112,16 @@ With only an API key there is no "my channel": pass `--channel UC...` / `@handle
 | "Google hasn't verified this app" | Normal. Click **Advanced → Go to (app name)**. |
 | "could not be refreshed" | The login expired or was revoked. Run `python cli.py auth`. If it happens every 7 days, the app is still in *Testing*: publish it. |
 
-**Scopes requested** (all read-only): `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly`. With `--with-comments`, also `youtube.force-ssl` (see [Comments](#comments)).
+**Scopes requested:** `youtube.readonly`, `yt-analytics.readonly`, `yt-analytics-monetary.readonly` (read-only), plus `youtube.force-ssl` for comments unless `--read-only` (see [Comments](#comments)).
 
 ### Comments
 
-Google won't let a read-only login read comments: over OAuth it requires `youtube.force-ssl`, a scope that can also edit and delete. Choose one:
+Comments are read with **OAuth first, then the API key**:
 
-| Option | How | Trade-off |
-|--------|-----|-----------|
-| **API key** (default) | Set `YOUTUBE_API_KEY` (step 6) | The OAuth token stays strictly read-only. Held-for-review comments are not visible. |
-| **OAuth with comments** | Delete `token.json`, run `python cli.py auth --with-comments` | No API key needed, but the saved token *could* edit and delete on the channel. This tool never does. |
+1. **OAuth.** Google only lets OAuth read comments with `youtube.force-ssl`, so `python cli.py auth` requests it. That scope *could* also edit and delete on the channel; this tool never does, but treat `token.json` accordingly.
+2. **API key.** If the login has no comment access (made with `--read-only`), or Google refuses the OAuth call, comments fall back to `YOUTUBE_API_KEY` (step 6).
 
-`python cli.py auth` checks for the key: with `YOUTUBE_API_KEY` set it signs in read-only, and without one it asks whether to grant comment access (default no). `--with-comments` / `--read-only` skip the question. If the token has the comments scope, comments go through OAuth; otherwise through the API key.
+For a strictly read-only token, sign in with `--read-only` and set an API key.
 
 ### Optional settings (`.env`)
 
@@ -153,8 +150,8 @@ python cli.py top --metric views --days 30 [-n 10]   # OAuth; metrics: views, wa
 python cli.py revenue --days 28                      # OAuth, monetized channels
 python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]          # OAuth; see --help for all breakdowns
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
-python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance (one video only)]   # API key or --with-comments
-python cli.py replies THREAD_ID                                                                  # API key or --with-comments
+python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance (one video only)]   # OAuth, or API key
+python cli.py replies THREAD_ID                                                                  # OAuth, or API key
 python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
 python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found
 python cli.py export [-d channel_daily -d video_daily ...] --days 28 [--format jsonl] [--out-dir exports]   # OAuth
@@ -232,7 +229,7 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 | `list_comments` | key* | Public comment threads on a video or a whole channel, with whether the channel replied |
 | `get_comment_replies` | key* | All replies to one comment thread |
 
-✓ = OAuth. key* = `YOUTUBE_API_KEY`, or an OAuth login made with `--with-comments` (see [Comments](#comments)).
+✓ = OAuth. key* = OAuth with comment access, falling back to `YOUTUBE_API_KEY` (see [Comments](#comments)).
 
 Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 
