@@ -74,7 +74,7 @@ python cli.py auth --no-browser   # prints the URL instead
 
 1. Sign in with the Google account that owns or manages the channel.
 2. If Google says **"Google hasn't verified this app"**, click **Advanced → Go to (app name)**.
-3. **Choose the account:** Google lists your personal profile *and* the channels you manage (Brand Account channels are labelled *YouTube*). **Pick the YouTube channel you want to analyze**, not your personal profile.
+3. **Choose the account:** Google may list your personal profile *and* the channels you manage (Brand Account channels are labelled *YouTube*). **Use the account that you want to connect.**
 4. Accept the read-only permissions.
 5. The command prints the connected channel. Confirm it is the right one, then run:
 
