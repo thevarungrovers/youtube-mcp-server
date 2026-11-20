@@ -156,6 +156,33 @@ class YouTubeClient:
                     raise
         raise AssertionError("unreachable")
 
+    def execute_resumable(
+        self, request: Any, *, progress: Any | None = None, api: str = "YouTube Data API"
+    ) -> dict[str, Any]:
+        """Run a resumable media upload chunk by chunk, translating failures like :meth:`execute`.
+
+        The lock is held per chunk rather than for the whole upload, so other
+        calls (e.g. MCP tools) are not blocked for minutes.
+
+        Args:
+            request: A request built with a resumable ``MediaFileUpload``.
+            progress: Called with the fraction uploaded (0.0-1.0) after each chunk.
+        """
+        response = None
+        while response is None:
+            with self._lock:
+                try:
+                    status, response = request.next_chunk(num_retries=3)
+                except HttpError as exc:
+                    raise translate_http_error(exc, api=api) from exc
+                except RefreshError as exc:
+                    raise AuthError(f"OAuth token could not be refreshed ({exc}). {AUTH_HINT}") from exc
+                except (TransportError, OSError) as exc:
+                    raise APIError(f"Network error talking to {api}: {exc}") from exc
+            if progress is not None:
+                progress(1.0 if response is not None else (status.progress() if status else 0.0))
+        return response
+
     def execute(self, request: Any, *, api: str = "YouTube Data API") -> dict[str, Any]:
         """Execute a ``googleapiclient`` request, translating failures.
 

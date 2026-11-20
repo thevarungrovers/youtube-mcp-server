@@ -1,4 +1,5 @@
-"""Read-only Python wrapper for the YouTube Data API v3 and YouTube Analytics API v2.
+"""Python wrapper for the YouTube Data, Analytics and Reporting APIs -- read-only,
+except for opt-in private uploads (:func:`upload_video`).
 
 Typical use::
 
@@ -41,6 +42,7 @@ from youtube.errors import (
     NotFoundError,
     OAuthRequiredError,
     QuotaExceededError,
+    UploadsDisabledError,
     YouTubeError,
 )
 from youtube.insights import get_audience_insights, get_search_terms
@@ -54,6 +56,7 @@ from youtube.reporting import (
     list_reports,
 )
 from youtube.reports import build_report, detect_anomalies, period_dates, render_markdown
+from youtube.upload import upload_video
 from youtube.videos import get_video_details, get_video_statistics, search_videos
 
 __all__ = [
@@ -67,6 +70,7 @@ __all__ = [
     "OAuthRequiredError",
     "OPERATIONS",
     "QuotaExceededError",
+    "UploadsDisabledError",
     "YouTubeClient",
     "YouTubeError",
     "auth_status",
@@ -102,6 +106,7 @@ __all__ = [
     "resolve_auth",
     "run_oauth_flow",
     "search_videos",
+    "upload_video",
 ]
 
 __version__ = "0.1.0"

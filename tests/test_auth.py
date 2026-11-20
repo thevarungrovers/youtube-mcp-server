@@ -111,7 +111,7 @@ def test_auth_status_both(isolated_credentials, monkeypatch):
     write_token(isolated_credentials / "token.json")
     status = auth.auth_status()
     assert status["credentials_available"] == "both"
-    assert status["unsupported_operations"] == []
+    assert status["unsupported_operations"] == ["upload_video"]  # uploads are off by default
 
 
 def test_auth_status_oauth_without_key_marks_comments_unsupported(isolated_credentials):
@@ -120,7 +120,7 @@ def test_auth_status_oauth_without_key_marks_comments_unsupported(isolated_crede
     write_token(isolated_credentials / "token.json")
     status = auth.auth_status()
     assert status["credentials_available"] == "oauth"
-    assert set(status["unsupported_operations"]) == {"list_comments", "get_comment_replies"}
+    assert set(status["unsupported_operations"]) == {"list_comments", "get_comment_replies", "upload_video"}
     assert any("comments" in step for step in status["next_steps"])
 
 
@@ -130,7 +130,7 @@ def test_auth_status_token_with_comments_scope_supports_comments(isolated_creden
 
     write_token(isolated_credentials / "token.json", scopes=SCOPES + [SCOPE_FORCE_SSL])
     status = auth.auth_status()
-    assert status["unsupported_operations"] == []
+    assert status["unsupported_operations"] == ["upload_video"]
     assert not any("comments" in step for step in status["next_steps"])
 
 
