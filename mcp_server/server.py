@@ -456,10 +456,11 @@ def upload_video(
     thumbnail_path: Annotated[str | None, Field(description="Optional JPEG/PNG thumbnail path, up to 2 MB.")] = None,
     playlist_id: Annotated[str | None, Field(description="Optional playlist ID to add the video to.")] = None,
 ) -> dict[str, Any]:
-    """Upload a video file to your channel as PRIVATE (it is never published; do that in YouTube Studio).
+    """Upload a video file to your channel. Privacy (private/unlisted/public) is fixed by the server's YOUTUBE_UPLOAD_PRIVACY setting, not by this tool.
 
-    Confirm the file, title and description with the user before calling. Costs ~1,600 of the 10,000
-    daily quota units. Returns the video and YouTube Studio links.
+    Check auth_status (upload_privacy) and confirm the file, title, description and resulting privacy with
+    the user before calling. Costs ~1,600 of the 10,000 daily quota units. Returns the video and YouTube
+    Studio links, and notes if YouTube applied a different privacy.
     """
     return youtube.upload_video(
         client, file_path, title, description=description, tags=tags, category_id=category_id,
@@ -469,7 +470,7 @@ def upload_video(
 
 # The upload tool only exists when uploads are switched on; otherwise the server is read-only.
 if youtube.auth.uploads_enabled():
-    mcp.tool(title="Upload a private video", annotations=UPLOAD)(upload_video)
+    mcp.tool(title="Upload a video", annotations=UPLOAD)(upload_video)
 
 
 def main() -> None:

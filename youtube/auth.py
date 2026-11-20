@@ -147,6 +147,32 @@ def uploads_enabled() -> bool:
     return (_env("YOUTUBE_ALLOW_UPLOADS") or "").strip().lower() in ("1", "true", "yes")
 
 
+UPLOAD_PRIVACY_VALUES = ("private", "unlisted", "public")
+
+
+def _safe_upload_privacy() -> str:
+    try:
+        return upload_privacy()
+    except Exception as exc:  # noqa: BLE001 - auth_status never raises
+        return f"invalid ({exc})"
+
+
+def upload_privacy() -> str:
+    """The privacy status for uploads, from ``YOUTUBE_UPLOAD_PRIVACY`` (default ``private``).
+
+    Raises:
+        InvalidRequestError: The value is not private, unlisted or public.
+    """
+    value = (_env("YOUTUBE_UPLOAD_PRIVACY") or "private").strip().lower()
+    if value not in UPLOAD_PRIVACY_VALUES:
+        from youtube.errors import InvalidRequestError
+
+        raise InvalidRequestError(
+            f"YOUTUBE_UPLOAD_PRIVACY must be one of {', '.join(UPLOAD_PRIVACY_VALUES)}; got {value!r}."
+        )
+    return value
+
+
 # --------------------------------------------------------------------------- #
 # OAuth token handling
 # --------------------------------------------------------------------------- #
@@ -406,6 +432,7 @@ def auth_status() -> dict[str, Any]:
         "oauth_token_valid": oauth,
         "oauth_scopes": granted,
         "uploads_enabled": uploads_enabled(),
+        "upload_privacy": _safe_upload_privacy(),
         "supported_operations": supported,
         "unsupported_operations": unsupported,
         "notes": (active.notes if active else []) + ([error] if error else []),

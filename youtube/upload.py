@@ -1,9 +1,11 @@
 """Uploading videos -- the one part of this package that writes to YouTube.
 
 Off by default: uploads only run when ``YOUTUBE_ALLOW_UPLOADS=true`` is set
-in ``.env``. Every upload is **private**; there is deliberately no way to
-choose another privacy status here. Publish in YouTube Studio when ready.
-Google also keeps uploads from unaudited Cloud projects private regardless.
+in ``.env``. The privacy status comes only from ``YOUTUBE_UPLOAD_PRIVACY``
+(``private`` by default, or ``unlisted`` / ``public``); callers, including
+the MCP tool, cannot override it. Google keeps uploads from Cloud projects
+that have not passed its API audit private regardless; when that happens the
+result says so in ``notes``.
 
 An upload costs about 1,600 quota units (of 10,000 a day by default).
 """
@@ -17,12 +19,10 @@ from typing import Any
 
 from googleapiclient.http import MediaFileUpload
 
-from youtube.auth import uploads_enabled
+from youtube.auth import upload_privacy, uploads_enabled
 from youtube.client import YouTubeClient
 from youtube.errors import AUTH_HINT, AuthError, InvalidRequestError, UploadsDisabledError, YouTubeError, oauth_required
 from youtube.operations import operation
-
-PRIVACY_STATUS = "private"
 
 MAX_TITLE = 100
 MAX_DESCRIPTION = 5000
@@ -69,7 +69,7 @@ def upload_video(
     playlist_id: str | None = None,
     progress: Callable[[float], None] | None = None,
 ) -> dict[str, Any]:
-    """Upload a video as **private** to the authenticated channel.
+    """Upload a video to the authenticated channel, with the privacy set in ``YOUTUBE_UPLOAD_PRIVACY``.
 
     Args:
         client: The API client (OAuth with an upload-capable scope).
@@ -85,17 +85,21 @@ def upload_video(
         progress: Called with the fraction uploaded after each 8 MB chunk.
 
     Returns:
-        ``{"video_id", "url", "studio_url", "privacy_status", "upload_status",
-        "thumbnail_set", "playlist_added", "notes"}``. A failed thumbnail or
-        playlist step is reported in ``notes`` without failing the upload.
+        ``{"video_id", "url", "studio_url", "requested_privacy", "privacy_status",
+        "upload_status", "thumbnail_set", "playlist_added", "notes"}``.
+        ``privacy_status`` is what YouTube applied; a mismatch with
+        ``requested_privacy`` (e.g. an unaudited project) is explained in
+        ``notes``. A failed thumbnail or playlist step is reported in ``notes``
+        without failing the upload.
 
     Raises:
         UploadsDisabledError: ``YOUTUBE_ALLOW_UPLOADS`` is not on.
         AuthError: The OAuth token has no upload-capable scope.
+        InvalidRequestError: Bad arguments, or an invalid ``YOUTUBE_UPLOAD_PRIVACY``.
     """
     if not uploads_enabled():
         raise UploadsDisabledError(
-            "Uploads are turned off. Set YOUTUBE_ALLOW_UPLOADS=true in .env to allow private uploads "
+            "Uploads are turned off. Set YOUTUBE_ALLOW_UPLOADS=true in .env to allow uploads "
             "(restart the MCP server afterwards)."
         )
     if not client.auth.has_oauth:
@@ -103,6 +107,7 @@ def upload_video(
     if not client.auth.oauth_can_upload:
         raise AuthError(f"The OAuth token cannot upload: it was made with --read-only. {AUTH_HINT}")
 
+    privacy = upload_privacy()
     video = _check_file(file_path, _VIDEO_SUFFIXES, "Video file")
     thumbnail = _check_file(thumbnail_path, _IMAGE_SUFFIXES, "Thumbnail") if thumbnail_path else None
     if thumbnail and thumbnail.stat().st_size > MAX_THUMBNAIL_BYTES:
@@ -122,7 +127,7 @@ def upload_video(
             "tags": _clean_tags(tags),
             "categoryId": str(category_id),
         },
-        "status": {"privacyStatus": PRIVACY_STATUS, "selfDeclaredMadeForKids": bool(made_for_kids)},
+        "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": bool(made_for_kids)},
     }
     media = MediaFileUpload(
         str(video),
@@ -163,12 +168,19 @@ def upload_video(
             notes.append(f"Not added to playlist {playlist_id} ({exc.code}: {exc}).")
 
     status = response.get("status", {})
+    applied = status.get("privacyStatus")
+    if applied and applied != privacy:
+        notes.append(
+            f"Requested {privacy} but YouTube set it to {applied}. Google keeps uploads from Cloud projects "
+            "that have not passed its API audit private; change it in YouTube Studio or complete the audit."
+        )
     return {
         "video_id": video_id,
         "url": f"https://www.youtube.com/watch?v={video_id}",
         "studio_url": f"https://studio.youtube.com/video/{video_id}/edit",
         "title": response.get("snippet", {}).get("title", title),
-        "privacy_status": status.get("privacyStatus"),
+        "requested_privacy": privacy,
+        "privacy_status": applied,
         "upload_status": status.get("uploadStatus"),
         "thumbnail_set": thumbnail_set,
         "playlist_added": playlist_added,
