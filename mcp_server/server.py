@@ -437,6 +437,41 @@ def get_playlist_items(
     return page
 
 
+UPLOAD = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=False,
+    open_world_hint=True,
+)
+
+
+@errors_reach_the_caller
+def upload_video(
+    file_path: Annotated[str, Field(description="Absolute path of the video file on this machine (.mp4, .mov, ...).")],
+    title: Annotated[str, Field(description="Video title, up to 100 characters, no < or >.")],
+    description: Annotated[str, Field(description="Video description, up to 5,000 characters.")] = "",
+    tags: Annotated[list[str] | None, Field(description="Tags (500 characters in all).")] = None,
+    category_id: Annotated[str, Field(description="Video category ID; 22 People & Blogs (default), 26 Howto & Style.")] = "22",
+    made_for_kids: Annotated[bool, Field(description="Audience declaration YouTube requires: is the video made for kids?")] = False,
+    thumbnail_path: Annotated[str | None, Field(description="Optional JPEG/PNG thumbnail path, up to 2 MB.")] = None,
+    playlist_id: Annotated[str | None, Field(description="Optional playlist ID to add the video to.")] = None,
+) -> dict[str, Any]:
+    """Upload a video file to your channel as PRIVATE (it is never published; do that in YouTube Studio).
+
+    Confirm the file, title and description with the user before calling. Costs ~1,600 of the 10,000
+    daily quota units. Returns the video and YouTube Studio links.
+    """
+    return youtube.upload_video(
+        client, file_path, title, description=description, tags=tags, category_id=category_id,
+        made_for_kids=made_for_kids, thumbnail_path=thumbnail_path, playlist_id=playlist_id,
+    )
+
+
+# The upload tool only exists when uploads are switched on; otherwise the server is read-only.
+if youtube.auth.uploads_enabled():
+    mcp.tool(title="Upload a private video", annotations=UPLOAD)(upload_video)
+
+
 def main() -> None:
     """Run the server over stdio."""
     mcp.run("stdio")

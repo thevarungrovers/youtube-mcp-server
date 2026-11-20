@@ -66,3 +66,21 @@ def test_no_credentials_error_reaches_agent():
 def test_auth_status_never_fails():
     result = _call("auth_status", {})
     assert "credentials_available" in str(result)
+
+
+def test_upload_tool_only_exists_when_enabled(monkeypatch):
+    import importlib
+
+    from mcp_server import server
+
+    names = {t.name for t in anyio.run(server.mcp.list_tools)}
+    assert "upload_video" not in names  # off by default: the server stays read-only
+
+    monkeypatch.setenv("YOUTUBE_ALLOW_UPLOADS", "true")
+    enabled = importlib.reload(server)
+    tools = {t.name: t for t in anyio.run(enabled.mcp.list_tools)}
+    assert tools["upload_video"].annotations.read_only_hint is False
+    assert tools["upload_video"].annotations.destructive_hint is False
+
+    monkeypatch.delenv("YOUTUBE_ALLOW_UPLOADS")
+    importlib.reload(server)

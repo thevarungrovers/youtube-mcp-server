@@ -377,6 +377,39 @@ def playlist(playlist_id: str, limit: int, stats: bool) -> None:
     )
 
 
+@cli.command()
+@click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--title", required=True, help="Up to 100 characters.")
+@click.option("--description", default="", help="Up to 5,000 characters.")
+@click.option("--description-file", type=click.Path(exists=True, dir_okay=False), help="Read the description from a file.")
+@click.option("--tags", default=None, help="Comma-separated tags.")
+@click.option("--category", default="22", show_default=True, help="Video category ID (22 People & Blogs, 26 Howto & Style).")
+@click.option("--made-for-kids", is_flag=True, help="Declare the video as made for kids.")
+@click.option("--thumbnail", type=click.Path(exists=True, dir_okay=False), help="JPEG/PNG thumbnail, up to 2 MB.")
+@click.option("--playlist", default=None, help="Add to this playlist ID.")
+def upload(
+    file_path: str, title: str, description: str, description_file: str | None, tags: str | None,
+    category: str, made_for_kids: bool, thumbnail: str | None, playlist: str | None,
+) -> None:
+    """Upload a video as PRIVATE (needs YOUTUBE_ALLOW_UPLOADS=true). ~1,600 quota units."""
+    if description_file:
+        with open(description_file, encoding="utf-8") as fh:
+            description = fh.read()
+    with click.progressbar(length=100, label="Uploading", file=sys.stderr) as bar:
+        done = [0]
+
+        def progress(fraction: float) -> None:
+            step = int(fraction * 100) - done[0]
+            if step > 0:
+                bar.update(step)
+                done[0] += step
+
+        _run(lambda c: youtube.upload_video(
+            c, file_path, title, description=description, tags=tags, category_id=category,
+            made_for_kids=made_for_kids, thumbnail_path=thumbnail, playlist_id=playlist, progress=progress,
+        ))
+
+
 @cli.group()
 def reporting() -> None:
     """Bulk daily CSV reports from the YouTube Reporting API (OAuth)."""

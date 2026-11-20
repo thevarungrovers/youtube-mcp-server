@@ -57,6 +57,12 @@ class InvalidRequestError(YouTubeError):
     code = "INVALID_REQUEST"
 
 
+class UploadsDisabledError(YouTubeError):
+    """An upload was attempted while YOUTUBE_ALLOW_UPLOADS is off."""
+
+    code = "UPLOADS_DISABLED"
+
+
 class APIError(YouTubeError):
     """Any other API failure, typically transient (5xx)."""
 
@@ -72,6 +78,7 @@ def oauth_required(operation: str) -> OAuthRequiredError:
 
 
 _QUOTA_REASONS = {"quotaExceeded", "dailyLimitExceeded", "dailyLimitExceededUnreg"}
+_UPLOAD_LIMIT_REASONS = {"uploadLimitExceeded"}
 _RATE_REASONS = {"rateLimitExceeded", "userRateLimitExceeded"}
 _NOT_FOUND_REASONS = {
     "notFound",
@@ -132,6 +139,10 @@ def translate_http_error(exc: HttpError, *, api: str = "YouTube Data API") -> Yo
             "resets at midnight Pacific Time. Check usage in the Cloud console under "
             "APIs & Services > Quotas, or request a higher quota. Note that a search "
             "costs 100 units while most reads cost 1."
+        )
+    if reason_set & _UPLOAD_LIMIT_REASONS:
+        return QuotaExceededError(
+            f"{detail}. The channel has hit YouTube's upload limit; try again in 24 hours."
         )
     if reason_set & _RATE_REASONS or status == 429:
         return QuotaExceededError(

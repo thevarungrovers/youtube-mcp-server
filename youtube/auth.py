@@ -52,6 +52,9 @@ SCOPES: list[str] = [
 #: package never writes; without it, comments are read with YOUTUBE_API_KEY.
 SCOPE_FORCE_SSL = "https://www.googleapis.com/auth/youtube.force-ssl"
 
+#: Scopes Google accepts for videos.insert. The default login's SCOPE_FORCE_SSL is one of them.
+UPLOAD_SCOPES = (SCOPE_FORCE_SSL, "https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube")
+
 _API_KEY_PLACEHOLDER = "your_api_key_here"
 
 _dotenv_loaded = False
@@ -77,6 +80,13 @@ class AuthContext:
     def has_oauth(self) -> bool:
         """True when OAuth credentials are in use (all operations supported)."""
         return self.mode is AuthMode.OAUTH
+
+    @property
+    def oauth_can_upload(self) -> bool:
+        """True when the OAuth token has a scope Google accepts for uploads."""
+        return self.has_oauth and self.credentials is not None and any(
+            self.credentials.has_scopes([scope]) for scope in UPLOAD_SCOPES
+        )
 
     @property
     def oauth_reads_comments(self) -> bool:
@@ -130,6 +140,11 @@ def api_key() -> str | None:
 def default_channel() -> str | None:
     """The ``YOUTUBE_CHANNEL_ID`` value (channel ID or @handle), if set."""
     return _env("YOUTUBE_CHANNEL_ID")
+
+
+def uploads_enabled() -> bool:
+    """True when ``YOUTUBE_ALLOW_UPLOADS`` is set to true/1/yes. Uploads are off by default."""
+    return (_env("YOUTUBE_ALLOW_UPLOADS") or "").strip().lower() in ("1", "true", "yes")
 
 
 # --------------------------------------------------------------------------- #
@@ -361,6 +376,7 @@ def auth_status() -> dict[str, Any]:
         if active
         and (oauth or not op.requires_oauth)
         and (not op.requires_comment_access or key_present or active.oauth_reads_comments)
+        and (not op.writes or (uploads_enabled() and active.oauth_can_upload))
     )
     unsupported = sorted(set(OPERATIONS) - set(supported))
 
@@ -389,6 +405,7 @@ def auth_status() -> dict[str, Any]:
         "token_present": token_path.exists(),
         "oauth_token_valid": oauth,
         "oauth_scopes": granted,
+        "uploads_enabled": uploads_enabled(),
         "supported_operations": supported,
         "unsupported_operations": unsupported,
         "notes": (active.notes if active else []) + ([error] if error else []),

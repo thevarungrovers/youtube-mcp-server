@@ -3,10 +3,14 @@
 A read-only Python toolkit for the **YouTube Data API v3**, **YouTube Analytics API v2** and **YouTube Reporting API**:
 
 - **`youtube/`**: a typed Python library covering channels, videos, search, playlists, comments, analytics, audience insights, revenue, channel comparison, reports and alerts, data export, and bulk reports
-- **`mcp_server/`**: a [Model Context Protocol](https://modelcontextprotocol.io) server with 19 tools, so AI agents (Claude Desktop, Claude Code, …) can use all of this
+- **`mcp_server/`**: a [Model Context Protocol](https://modelcontextprotocol.io) server with 19 read-only tools (20 with uploads on), so AI agents (Claude Desktop, Claude Code, …) can use all of this
 - **`cli.py`**: a command-line interface for setup, manual checks, exports and scheduled jobs
 
-Everything is **read-only**: nothing here uploads, edits, or deletes. (The one exception is `cli.py reporting create-job`, which schedules Google-generated reports and does not touch the channel. Note that the default login includes a comments scope Google ties to write access; see [Comments](#comments).)
+Everything is **read-only by default**: nothing edits or deletes. Two opt-in exceptions:
+- **Private uploads** ([Uploading](#uploading-opt-in)): off unless `YOUTUBE_ALLOW_UPLOADS=true`, and always private.
+- `cli.py reporting create-job`: schedules Google-generated reports and does not touch the channel.
+
+The default login includes a comments scope Google ties to write access; see [Comments](#comments).
 
 ## How authentication works
 
@@ -139,6 +143,7 @@ Limits:
 | `YOUTUBE_CHANNEL_ID` | Default channel (ID or `@handle`) when only an API key is set |
 | `YOUTUBE_CLIENT_SECRET_FILE` | Path to the OAuth client JSON (default `client_secret.json`) |
 | `YOUTUBE_TOKEN_FILE` | Where to store the OAuth token (default `token.json`) |
+| `YOUTUBE_ALLOW_UPLOADS` | `true` to allow private uploads and add the `upload_video` MCP tool (off by default) |
 
 Relative paths are resolved against the project root, so the server works no matter which directory it's launched from.
 
@@ -166,6 +171,7 @@ python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
 python cli.py trending --region CA [--category 26]
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
+python cli.py upload clip.mp4 --title "..." [--description-file d.txt] [--tags a,b] [--thumbnail t.jpg] [--playlist ID]   # private; needs YOUTUBE_ALLOW_UPLOADS
 ```
 
 Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a code and exit with status 1.
@@ -185,6 +191,22 @@ Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a c
 | `videos` | Every upload with its current views, likes and comments (a snapshot) |
 
 Run it daily for the last few days and upsert on `day` (+ the breakdown column): recent days keep changing until analytics settles.
+
+### Uploading (opt-in)
+
+Uploads are **off by default**. To turn them on, add `YOUTUBE_ALLOW_UPLOADS=true` to `.env` (and restart the MCP server). Then:
+
+```bash
+python cli.py upload clip.mp4 --title "Rooftop harvest" --description-file description.txt --tags "farm,harvest"
+```
+
+- Every upload is **private**. There is no option to publish; do that in YouTube Studio (the result includes the Studio link). Google also keeps uploads from unaudited Cloud projects private.
+- It needs the default login (`python cli.py auth`); a `--read-only` login can't upload.
+- Large files upload in resumable 8 MB chunks with a progress bar.
+- A thumbnail or playlist that fails is reported in `notes` without failing the upload. Custom thumbnails need a verified channel.
+- Each upload costs about **1,600 quota units**, so roughly 6 a day on the default quota.
+
+With uploads on, the MCP server also offers an `upload_video` tool (same rules: private only, a file on the server's machine). It is the only tool not marked read-only.
 
 ### Bulk reports (YouTube Reporting API)
 
@@ -235,10 +257,11 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 | `get_search_terms` | ✓ | The YouTube search terms that led viewers to your videos |
 | `list_comments` | key* | Public comment threads on a video or a whole channel, with whether the channel replied |
 | `get_comment_replies` | key* | All replies to one comment thread |
+| `upload_video` | ✓ | Upload a file as **private**. Only listed when `YOUTUBE_ALLOW_UPLOADS=true` (see [Uploading](#uploading-opt-in)) |
 
 ✓ = OAuth. key* = OAuth with comment access, falling back to `YOUTUBE_API_KEY` (see [Comments](#comments)).
 
-Every tool returns structured JSON, is annotated read-only, and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
+Every tool returns structured JSON, is annotated read-only (except `upload_video`), and documents each parameter. Analytics tools accept `start_date`/`end_date` (YYYY-MM-DD) or `days` (default 28). Errors reach the agent with a stable prefix: `NO_CREDENTIALS`, `OAUTH_REQUIRED`, `AUTH_ERROR`, `QUOTA_EXCEEDED`, `NOT_FOUND`, `INVALID_REQUEST`, `API_ERROR`.
 
 The server **never opens a browser**. Run `python cli.py auth` once in a terminal; if you do this while the server is running, it picks up the new token on its next call. Changes to `.env` (such as adding `YOUTUBE_API_KEY`) are read at startup, so restart or reconnect the server after editing it (in Claude Code: `/mcp` → reconnect).
 
@@ -313,6 +336,7 @@ The YouTube Data API has a daily quota (10,000 units by default, reset at midnig
 | Most reads (channel, videos, playlists, comments page, trending) | 1 unit |
 | `search_videos` | 100 units |
 | `compare_channels` | ~3 units per channel |
+| Upload | ~1,600 units |
 | `list_channel_videos` | 1-2 units per page (reads the uploads playlist, not search) |
 
 The Analytics and Reporting APIs (analytics, insights, reports, alerts, export) have separate, generous quotas and don't use these units.
@@ -341,6 +365,7 @@ youtube/
   reports.py     period reports, Markdown rendering, anomaly alerts
   export.py      daily datasets as CSV / JSON Lines
   reporting.py   YouTube Reporting API: report types, jobs, CSV downloads
+  upload.py      opt-in private uploads
 mcp_server/
   server.py      MCP tools
 cli.py           click CLI
