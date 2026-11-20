@@ -18,7 +18,6 @@ Results print as JSON; errors print to stderr with their code and exit 1.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from collections.abc import Callable
 from typing import Any
@@ -32,7 +31,7 @@ from youtube.comments import COMMENT_ORDERS
 from youtube.export import DATASETS, FORMATS, export_dataset, write_rows
 from youtube.insights import BREAKDOWNS, DEFAULT_BREAKDOWNS, MAX_SEARCH_TERMS
 from youtube.reporting import parse_report, save_report
-from youtube.reports import PERIODS, post_webhook
+from youtube.reports import PERIODS
 from youtube.videos import SEARCH_ORDERS
 
 channel_option = click.option(
@@ -172,22 +171,13 @@ def search(
     )
 
 
-webhook_option = click.option(
-    "--webhook", default=lambda: os.environ.get("YOUTUBE_REPORT_WEBHOOK"), show_default="$YOUTUBE_REPORT_WEBHOOK",
-    help="Also post the text to this Slack-compatible incoming webhook URL.",
-)
-
-
-def _deliver(text: str, out: str | None, webhook: str | None) -> None:
+def _deliver(text: str, out: str | None) -> None:
     if out:
         with open(out, "w", encoding="utf-8") as fh:
             fh.write(text)
         click.secho(f"Wrote {out}", fg="green", err=True)
     else:
         click.echo(text)
-    if webhook:
-        post_webhook(webhook, text)
-        click.secho("Posted to webhook", fg="green", err=True)
 
 
 @cli.command()
@@ -197,8 +187,7 @@ def _deliver(text: str, out: str | None, webhook: str | None) -> None:
 @click.option("--top", "top_n", default=5, show_default=True, type=click.IntRange(1, 25), help="Top videos to include.")
 @click.option("--json", "as_json", is_flag=True, help="Print JSON instead of Markdown.")
 @click.option("--out", default=None, help="Write to this file instead of stdout.")
-@webhook_option
-def report(period: str, start: str | None, end: str | None, top_n: int, as_json: bool, out: str | None, webhook: str | None) -> None:
+def report(period: str, start: str | None, end: str | None, top_n: int, as_json: bool, out: str | None) -> None:
     """Channel performance report vs the previous period (OAuth)."""
     if start or end:
         start, end = _range(start, end, 28)
@@ -206,7 +195,7 @@ def report(period: str, start: str | None, end: str | None, top_n: int, as_json:
         start, end = youtube.period_dates(period)
     try:
         data = youtube.build_report(YouTubeClient(interactive=True), start, end, top_n=top_n)
-        _deliver(json.dumps(data, indent=2, ensure_ascii=False) + "\n" if as_json else youtube.render_markdown(data), out, webhook)
+        _deliver(json.dumps(data, indent=2, ensure_ascii=False) + "\n" if as_json else youtube.render_markdown(data), out)
     except YouTubeError as exc:
         click.secho(f"{exc.code}: {exc}", fg="red", err=True)
         sys.exit(1)
@@ -216,19 +205,10 @@ def report(period: str, start: str | None, end: str | None, top_n: int, as_json:
 @click.option("--days", default=14, show_default=True, type=click.IntRange(1, 90), help="Recent days to check.")
 @click.option("--baseline", "baseline_days", default=28, show_default=True, type=click.IntRange(7, 180))
 @click.option("--threshold", default=2.0, show_default=True, type=click.FloatRange(min=1, min_open=True))
-@webhook_option
-def alerts(days: int, baseline_days: int, threshold: float, webhook: str | None) -> None:
-    """Spikes, drops and subscriber losses in recent days (OAuth). Posts to the webhook only when something is found."""
+def alerts(days: int, baseline_days: int, threshold: float) -> None:
+    """Spikes, drops and subscriber losses in recent days (OAuth)."""
     try:
-        data = youtube.detect_anomalies(YouTubeClient(interactive=True), days=days, baseline_days=baseline_days, threshold=threshold)
-        _emit(data)
-        found = data["anomalies"] or data["subscriber_alerts"]
-        if webhook and found:
-            lines = [f"YouTube alerts {data['checked']['start']} to {data['checked']['end']}:"]
-            lines += [f"- {a['day']}: views {a['kind']} ({a['views']:,} vs usual {a['baseline_median']:,.0f})" for a in data["anomalies"]]
-            lines += [f"- {a['day']}: net subscribers {a['net_subscribers']:+}" for a in data["subscriber_alerts"]]
-            post_webhook(webhook, "\n".join(lines))
-            click.secho("Posted to webhook", fg="green", err=True)
+        _emit(youtube.detect_anomalies(YouTubeClient(interactive=True), days=days, baseline_days=baseline_days, threshold=threshold))
     except YouTubeError as exc:
         click.secho(f"{exc.code}: {exc}", fg="red", err=True)
         sys.exit(1)
