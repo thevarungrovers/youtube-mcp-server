@@ -391,10 +391,17 @@ def upload(
     file_path: str, title: str, description: str, description_file: str | None, tags: str | None,
     category: str, made_for_kids: bool, thumbnail: str | None, playlist: str | None,
 ) -> None:
-    """Upload a video as PRIVATE (needs YOUTUBE_ALLOW_UPLOADS=true). ~1,600 quota units."""
+    """Upload a video (needs YOUTUBE_ALLOW_UPLOADS=true). Privacy comes from YOUTUBE_UPLOAD_PRIVACY (default private)."""
     if description_file:
         with open(description_file, encoding="utf-8") as fh:
             description = fh.read()
+    try:
+        privacy = youtube.auth.upload_privacy()
+    except YouTubeError as exc:
+        click.secho(f"{exc.code}: {exc}", fg="red", err=True)
+        sys.exit(1)
+    if privacy != "private" and youtube.auth.uploads_enabled():
+        click.secho(f"This upload will be {privacy.upper()} (YOUTUBE_UPLOAD_PRIVACY).", fg="yellow", err=True)
     with click.progressbar(length=100, label="Uploading", file=sys.stderr) as bar:
         done = [0]
 

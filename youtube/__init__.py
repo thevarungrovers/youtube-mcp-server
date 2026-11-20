@@ -1,5 +1,5 @@
 """Python wrapper for the YouTube Data, Analytics and Reporting APIs -- read-only,
-except for opt-in private uploads (:func:`upload_video`).
+except for opt-in uploads (:func:`upload_video`).
 
 Typical use::
 

@@ -7,7 +7,7 @@ A read-only Python toolkit for the **YouTube Data API v3**, **YouTube Analytics 
 - **`cli.py`**: a command-line interface for setup, manual checks, exports and scheduled jobs
 
 Everything is **read-only by default**: nothing edits or deletes. Two opt-in exceptions:
-- **Private uploads** ([Uploading](#uploading-opt-in)): off unless `YOUTUBE_ALLOW_UPLOADS=true`, and always private.
+- **Uploads** ([Uploading](#uploading-opt-in)): off unless `YOUTUBE_ALLOW_UPLOADS=true`; private unless `YOUTUBE_UPLOAD_PRIVACY` says otherwise.
 - `cli.py reporting create-job`: schedules Google-generated reports and does not touch the channel.
 
 The default login includes a comments scope Google ties to write access; see [Comments](#comments).
@@ -143,7 +143,8 @@ Limits:
 | `YOUTUBE_CHANNEL_ID` | Default channel (ID or `@handle`) when only an API key is set |
 | `YOUTUBE_CLIENT_SECRET_FILE` | Path to the OAuth client JSON (default `client_secret.json`) |
 | `YOUTUBE_TOKEN_FILE` | Where to store the OAuth token (default `token.json`) |
-| `YOUTUBE_ALLOW_UPLOADS` | `true` to allow private uploads and add the `upload_video` MCP tool (off by default) |
+| `YOUTUBE_ALLOW_UPLOADS` | `true` to allow uploads and add the `upload_video` MCP tool (off by default) |
+| `YOUTUBE_UPLOAD_PRIVACY` | `private` (default), `unlisted` or `public` for every upload |
 
 Relative paths are resolved against the project root, so the server works no matter which directory it's launched from.
 
@@ -171,7 +172,7 @@ python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
 python cli.py trending --region CA [--category 26]
 python cli.py playlists [--channel @handle]
 python cli.py playlist PLAYLIST_ID [--stats]
-python cli.py upload clip.mp4 --title "..." [--description-file d.txt] [--tags a,b] [--thumbnail t.jpg] [--playlist ID]   # private; needs YOUTUBE_ALLOW_UPLOADS
+python cli.py upload clip.mp4 --title "..." [--description-file d.txt] [--tags a,b] [--thumbnail t.jpg] [--playlist ID]   # needs YOUTUBE_ALLOW_UPLOADS; privacy from YOUTUBE_UPLOAD_PRIVACY
 ```
 
 Output is JSON (`report` prints Markdown). Errors go to stderr prefixed with a code and exit with status 1.
@@ -200,13 +201,14 @@ Uploads are **off by default**. To turn them on, add `YOUTUBE_ALLOW_UPLOADS=true
 python cli.py upload clip.mp4 --title "Rooftop harvest" --description-file description.txt --tags "farm,harvest"
 ```
 
-- Every upload is **private**. There is no option to publish; do that in YouTube Studio (the result includes the Studio link). Google also keeps uploads from unaudited Cloud projects private.
+- **Privacy** comes only from `YOUTUBE_UPLOAD_PRIVACY` in `.env`: `private` (default), `unlisted` or `public`. Neither the CLI nor the agent can override it, and the CLI warns before a non-private upload. `auth_status` shows the current value.
+- **Google's audit:** until the Cloud project passes the *YouTube API Services audit*, YouTube stores every upload as private, whatever you request. The result then shows `requested_privacy` vs the applied `privacy_status` with a note; publish in YouTube Studio (the result includes the Studio link).
 - It needs the default login (`python cli.py auth`); a `--read-only` login can't upload.
 - Large files upload in resumable 8 MB chunks with a progress bar.
 - A thumbnail or playlist that fails is reported in `notes` without failing the upload. Custom thumbnails need a verified channel.
 - Each upload costs about **1,600 quota units**, so roughly 6 a day on the default quota.
 
-With uploads on, the MCP server also offers an `upload_video` tool (same rules: private only, a file on the server's machine). It is the only tool not marked read-only.
+With uploads on, the MCP server also offers an `upload_video` tool (same rules: privacy from `.env`, a file on the server's machine). It is the only tool not marked read-only.
 
 ### Bulk reports (YouTube Reporting API)
 
@@ -257,7 +259,7 @@ These need a working OAuth login. Publish the consent screen (setup step 3), or 
 | `get_search_terms` | ✓ | The YouTube search terms that led viewers to your videos |
 | `list_comments` | key* | Public comment threads on a video or a whole channel, with whether the channel replied |
 | `get_comment_replies` | key* | All replies to one comment thread |
-| `upload_video` | ✓ | Upload a file as **private**. Only listed when `YOUTUBE_ALLOW_UPLOADS=true` (see [Uploading](#uploading-opt-in)) |
+| `upload_video` | ✓ | Upload a file; privacy set by `YOUTUBE_UPLOAD_PRIVACY` (default private). Only listed when `YOUTUBE_ALLOW_UPLOADS=true` (see [Uploading](#uploading-opt-in)) |
 
 ✓ = OAuth. key* = OAuth with comment access, falling back to `YOUTUBE_API_KEY` (see [Comments](#comments)).
 
@@ -365,7 +367,7 @@ youtube/
   reports.py     period reports, Markdown rendering, anomaly alerts
   export.py      daily datasets as CSV / JSON Lines
   reporting.py   YouTube Reporting API: report types, jobs, CSV downloads
-  upload.py      opt-in private uploads
+  upload.py      opt-in uploads
 mcp_server/
   server.py      MCP tools
 cli.py           click CLI

@@ -27,12 +27,28 @@ def _client(responses=(), *, scopes=SCOPES + [SCOPE_FORCE_SSL]):
     return YouTubeClient(auth=auth, http=HttpMockSequence(list(responses)))
 
 
-def _uploaded(video_id="vid1"):
+def _uploaded(video_id="vid1", applied="private"):
     # Resumable upload: the session URL, then the final response with the video resource.
     return [
         ({"status": "200", "location": "https://upload.example/session"}, ""),
-        ok({"id": video_id, "snippet": {"title": "Clip"}, "status": {"privacyStatus": "private", "uploadStatus": "uploaded"}}),
+        ok({"id": video_id, "snippet": {"title": "Clip"}, "status": {"privacyStatus": applied, "uploadStatus": "uploaded"}}),
     ]
+
+
+def _spy_insert(c):
+    """Record the kwargs passed to videos().insert."""
+    sent = {}
+    service = c.data
+    real_videos = service.videos
+
+    def videos():
+        resource = real_videos()
+        real_insert = resource.insert
+        resource.insert = lambda **kwargs: sent.update(kwargs) or real_insert(**kwargs)
+        return resource
+
+    service.videos = videos
+    return sent
 
 
 def test_uploads_are_off_by_default(video):
@@ -45,19 +61,9 @@ def test_read_only_token_cannot_upload(video, enabled):
         youtube.upload_video(_client(scopes=SCOPES), video, "Clip")
 
 
-def test_upload_is_always_private(video, enabled):
+def test_upload_defaults_to_private(video, enabled):
     c = _client(_uploaded())
-    sent = {}
-    service = c.data
-    real_videos = service.videos
-
-    def videos():
-        resource = real_videos()
-        real_insert = resource.insert
-        resource.insert = lambda **kwargs: sent.update(kwargs) or real_insert(**kwargs)
-        return resource
-
-    service.videos = videos
+    sent = _spy_insert(c)
     result = youtube.upload_video(c, video, "Clip", tags="farm, rooftop greenhouse", made_for_kids=False)
     assert sent["body"]["status"] == {"privacyStatus": "private", "selfDeclaredMadeForKids": False}
     assert sent["body"]["snippet"]["tags"] == ["farm", "rooftop greenhouse"]
@@ -110,3 +116,42 @@ def test_auth_status_lists_upload_when_enabled(isolated_credentials, enabled):
     write_token(isolated_credentials / "token.json", scopes=SCOPES + [SCOPE_FORCE_SSL])
     status = youtube.auth_status()
     assert status["uploads_enabled"] is True and "upload_video" in status["supported_operations"]
+
+
+@pytest.mark.parametrize("privacy", ["private", "unlisted", "public", "PUBLIC "])
+def test_privacy_comes_from_env(video, enabled, monkeypatch, privacy):
+    monkeypatch.setenv("YOUTUBE_UPLOAD_PRIVACY", privacy)
+    expected = privacy.strip().lower()
+    c = _client(_uploaded(applied=expected))
+    sent = _spy_insert(c)
+    result = youtube.upload_video(c, video, "Clip")
+    assert sent["body"]["status"]["privacyStatus"] == expected
+    assert result["requested_privacy"] == expected and result["notes"] == []
+
+
+def test_invalid_privacy_setting_is_refused_before_uploading(video, enabled, monkeypatch):
+    monkeypatch.setenv("YOUTUBE_UPLOAD_PRIVACY", "friends-only")
+    with pytest.raises(InvalidRequestError, match="YOUTUBE_UPLOAD_PRIVACY"):
+        youtube.upload_video(_client(), video, "Clip")  # no responses queued: any request would fail
+
+
+def test_youtube_forcing_private_is_explained(video, enabled, monkeypatch):
+    monkeypatch.setenv("YOUTUBE_UPLOAD_PRIVACY", "public")
+    result = youtube.upload_video(_client(_uploaded(applied="private")), video, "Clip")
+    assert result["requested_privacy"] == "public" and result["privacy_status"] == "private"
+    assert "audit" in result["notes"][0]
+
+
+def test_mcp_tool_has_no_privacy_parameter():
+    import inspect
+
+    from mcp_server.server import upload_video
+
+    assert not any("privacy" in name for name in inspect.signature(upload_video).parameters)
+
+
+def test_auth_status_reports_privacy(isolated_credentials, monkeypatch):
+    monkeypatch.setenv("YOUTUBE_UPLOAD_PRIVACY", "unlisted")
+    assert youtube.auth_status()["upload_privacy"] == "unlisted"
+    monkeypatch.setenv("YOUTUBE_UPLOAD_PRIVACY", "bogus")
+    assert youtube.auth_status()["upload_privacy"].startswith("invalid")
