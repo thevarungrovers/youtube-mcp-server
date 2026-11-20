@@ -139,7 +139,6 @@ Limits:
 | `YOUTUBE_CHANNEL_ID` | Default channel (ID or `@handle`) when only an API key is set |
 | `YOUTUBE_CLIENT_SECRET_FILE` | Path to the OAuth client JSON (default `client_secret.json`) |
 | `YOUTUBE_TOKEN_FILE` | Where to store the OAuth token (default `token.json`) |
-| `YOUTUBE_REPORT_WEBHOOK` | Slack-compatible webhook for `report` and `alerts` (a secret) |
 
 Relative paths are resolved against the project root, so the server works no matter which directory it's launched from.
 
@@ -160,8 +159,8 @@ python cli.py insights -b countries -b devices [--video VIDEO_ID] [-n 10]       
 python cli.py search-terms --days 90 [--video VIDEO_ID]                          # OAuth
 python cli.py comments [--video VIDEO_ID | --channel @handle] [--search text] [--order relevance (one video only)]   # OAuth, or API key
 python cli.py replies THREAD_ID                                                                  # OAuth, or API key
-python cli.py report --period last_week [--out report.md] [--webhook URL]   # OAuth; or --start/--end, --json
-python cli.py alerts --days 14 [--threshold 2] [--webhook URL]              # OAuth; posts only when something is found
+python cli.py report --period last_week [--out report.md]   # OAuth; or --start/--end, --json
+python cli.py alerts --days 14 [--threshold 2]              # OAuth
 python cli.py export [-d channel_daily -d video_daily ...] --days 28 [--format jsonl] [--out-dir exports]   # OAuth
 python cli.py compare mine @OtherChannel @AnotherOne [--recent 20]
 python cli.py trending --region CA [--category 26]
@@ -202,11 +201,11 @@ Creating a job is the only call in this project that changes anything: it schedu
 
 ### Scheduled reports
 
-`report` and `alerts` read the webhook from `YOUTUBE_REPORT_WEBHOOK` in `.env` (any Slack-compatible incoming webhook), so a cron job is enough. For example, a report every Monday at 9:00 and alerts every morning:
+`report` and `alerts` run fine from cron. For example, a report file every Monday at 9:00 and alerts every morning:
 
 ```cron
-0 9 * * 1  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py report --period last_week
-30 8 * * *  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py alerts --days 3
+0 9 * * 1  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py report --period last_week --out reports/latest.md
+30 8 * * *  cd /path/to/youtube-mcp-server && .venv/bin/python cli.py alerts --days 3 > reports/alerts.json
 ```
 
 These need a working OAuth login. Publish the consent screen (setup step 3), or the login expires every 7 days and the jobs fail with `AUTH_ERROR`.
@@ -339,7 +338,7 @@ youtube/
   benchmark.py   channel comparison, trending chart
   analytics.py   channel/video analytics, top videos, revenue
   insights.py    audience breakdowns, search terms
-  reports.py     period reports, Markdown rendering, anomaly alerts, webhook
+  reports.py     period reports, Markdown rendering, anomaly alerts
   export.py      daily datasets as CSV / JSON Lines
   reporting.py   YouTube Reporting API: report types, jobs, CSV downloads
 mcp_server/

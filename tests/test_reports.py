@@ -68,27 +68,3 @@ def test_render_markdown_handles_failed_sections():
     assert "mostly from YT_SEARCH" in text and "_Unavailable: INVALID_REQUEST" in text
     assert "greenhouse (9)" in text
 
-
-def test_post_webhook_sends_slack_payload(monkeypatch):
-    import json
-
-    from youtube import reports
-
-    sent = {}
-
-    class Response:
-        status = 200
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    def fake_urlopen(request, timeout):
-        sent.update(url=request.full_url, body=json.loads(request.data))
-        return Response()
-
-    monkeypatch.setattr(reports.urllib.request, "urlopen", fake_urlopen)
-    reports.post_webhook("https://hooks.example.com/x", "hello")
-    assert sent == {"url": "https://hooks.example.com/x", "body": {"text": "hello"}}

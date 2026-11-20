@@ -9,8 +9,6 @@ from the days before them. All need OAuth.
 
 from __future__ import annotations
 
-import json
-import urllib.request
 from datetime import date, timedelta
 from statistics import median
 from typing import Any
@@ -260,19 +258,3 @@ def detect_anomalies(
         "subscriber_alerts": subscriber_alerts,
     }
 
-
-def post_webhook(url: str, text: str, *, timeout: float = 15) -> None:
-    """Post ``text`` to a Slack-compatible incoming webhook (``{"text": ...}``).
-
-    Raises:
-        APIError: The webhook did not accept the message.
-    """
-    request = urllib.request.Request(
-        url, data=json.dumps({"text": text}).encode(), headers={"Content-Type": "application/json"}, method="POST"
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - user-supplied webhook
-            if response.status >= 300:
-                raise APIError(f"Webhook returned HTTP {response.status}.")
-    except OSError as exc:
-        raise APIError(f"Could not post to the webhook: {exc}") from exc
